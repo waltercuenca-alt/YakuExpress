@@ -774,6 +774,15 @@ function readDraft() { try { return JSON.parse(localStorage.getItem('yakuexpress
 function readSession() { try { return JSON.parse(localStorage.getItem('yakuexpress_staff')); } catch { return null; } }
 function validCustomer(order) { return order.customerName && order.documentNumber && order.email && order.phone && order.paymentMethod; }
 function formatDate(value) { return value ? new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '-'; }
+function formatTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleTimeString('es-PE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 function formatSupabaseError(error) {
   if (!error) return 'No se pudo crear el pedido.';
   const parts = [
