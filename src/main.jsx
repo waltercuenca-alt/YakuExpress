@@ -413,7 +413,7 @@ function Caja({ session, setSession }) {
   const [todayStatus, setTodayStatus] = useState('');
   const [cashierSummary, setCashierSummary] = useState(null);
   const [query, setQuery] = useState(new URLSearchParams(location.search).get('codigo') || '');
-  const [selected, setSelected] = useState(null);
+  const [activeOrder, setActiveOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [todayLoading, setTodayLoading] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -519,16 +519,16 @@ function Caja({ session, setSession }) {
 
   const selectOrder = (order) => {
     if (!order?.code) return;
-    setSelected(order);
+    setActiveOrder(order);
   };
 
   const closeSelectedOrder = () => {
-    setSelected(null);
+    setActiveOrder(null);
   };
 
   const handleOrderUpdated = (updatedOrder) => {
     if (!updatedOrder?.code) return;
-    setSelected(updatedOrder);
+    setActiveOrder(updatedOrder);
   };
 
   const updateStatus = async (code, status) => {
@@ -632,9 +632,9 @@ function Caja({ session, setSession }) {
           ))}
         </div>
       </section>
-        {selected && (
+        {activeOrder && (
           <OrderModal
-            order={selected}
+            order={activeOrder}
             session={session}
             close={closeSelectedOrder}
             updateStatus={updateStatus}
