@@ -495,7 +495,7 @@ function Caja({ session, setSession }) {
       const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
       setOrders(nextOrders);
       if (nextOrders.length === 1) {
-        setSelected(nextOrders[0]);
+        selectOrder(nextOrders[0]);
         setSearchMessage('Pedido encontrado.');
       } else if (nextOrders.length > 1) {
         setSearchMessage(`${nextOrders.length} pedidos encontrados.`);
@@ -516,6 +516,20 @@ function Caja({ session, setSession }) {
     const timer = window.setInterval(() => refreshCaja(), 10000);
     return () => window.clearInterval(timer);
   }, []);
+
+  const selectOrder = (order) => {
+    if (!order?.code) return;
+    setSelected(order);
+  };
+
+  const closeSelectedOrder = () => {
+    setSelected(null);
+  };
+
+  const handleOrderUpdated = (updatedOrder) => {
+    if (!updatedOrder?.code) return;
+    setSelected(updatedOrder);
+  };
 
   const updateStatus = async (code, status) => {
     const { data, error } = await supabase.rpc('staff_update_order_status', {
@@ -585,7 +599,7 @@ function Caja({ session, setSession }) {
         {todayMessage && <p className={todayMessage.startsWith('Error') ? 'error' : 'soft'}>{todayMessage}</p>}
         <div className="today-list">
           {todayOrders.map((order) => (
-            <button key={order.code} className="today-row" onClick={() => setSelected(order)}>
+            <button key={order.code} className="today-row" onClick={() => selectOrder(order)}>
               <strong>{order.code}</strong>
               <span>{order.status}</span>
               <span>{order.customer_name || '-'}</span>
@@ -613,7 +627,7 @@ function Caja({ session, setSession }) {
                 <small>{order.phone} · vence {formatDate(order.expires_at)}</small>
               </div>
               <b>S/{order.total}</b>
-              <button className="ghost" onClick={() => setSelected(order)}>Ver / editar</button>
+              <button className="ghost" onClick={() => selectOrder(order)}>Ver / editar</button>
             </article>
           ))}
         </div>
@@ -622,11 +636,9 @@ function Caja({ session, setSession }) {
           <OrderModal
             order={selected}
             session={session}
-            close={() => setSelected(null)}
+            close={closeSelectedOrder}
             updateStatus={updateStatus}
-            onOrderUpdated={(updatedOrder) => {
-              if (updatedOrder?.code) setSelected(updatedOrder);
-            }}
+            onOrderUpdated={handleOrderUpdated}
             refresh={async () => { await load(); await refreshCaja(); }}
           />
         )}
