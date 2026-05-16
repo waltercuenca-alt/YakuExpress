@@ -81,6 +81,10 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .order-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid #cfeff7; border-radius: 8px; background: white; }
 .order-row div { display: grid; gap: 4px; }
 .order-row span, .order-row small { color: #4b6d7b; }
+.today-list { display: grid; gap: 8px; }
+.today-row { display: grid; grid-template-columns: 1.1fr .9fr 1.4fr 1fr auto auto; gap: 10px; align-items: center; text-align: left; background: white; border: 1px solid #cfeff7; box-shadow: none; color: #073b58; padding: 12px; }
+.today-row span, .today-row small { color: #4b6d7b; font-weight: 800; }
+.today-row b { color: #f28b00; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 24, 38, .55); display: grid; place-items: center; padding: 16px; z-index: 10; }
 .modal { width: min(620px, 100%); max-height: 92vh; overflow: auto; background: white; border-radius: 8px; padding: 18px; position: relative; }
 .close { position: absolute; right: 12px; top: 12px; }
@@ -101,6 +105,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .hero .app-icon { display: none; }
   .cards, .option-grid, .form-grid, .metric-grid, .slots, .status-grid { grid-template-columns: 1fr; }
   .order-row { grid-template-columns: 1fr; }
+  .today-row { grid-template-columns: 1fr 1fr; }
   .actions { align-items: stretch; }
   .actions button { flex: 1; }
 }

@@ -5,7 +5,7 @@ import './styles.css';
 
 const products = [
   { id: 'standard', name: 'Pulsera Standard', price: 50, minutes: 45, badge: '', details: ['45 minutos'] },
-  { id: 'full_pass', name: 'Full Pass', price: 80, minutes: 90, badge: 'MAS ELEGIDO', details: ['90 minutos', '1 foto gratis', 'media de regalo'], hero: true },
+  { id: 'full_pass', name: 'Full Pass', price: 80, minutes: 90, badge: 'MAS ELEGIDO', details: ['90 minutos dentro del parque + 1 foto gratis + media de regalo'], hero: true },
   { id: 'premium_kids', name: 'Premium Kids', price: 60, minutes: 90, badge: '', details: ['90 minutos'] },
   { id: 'kids_normal', name: 'Kids Normal', price: 30, minutes: 45, badge: '', details: ['45 minutos'] },
 ];
@@ -15,8 +15,8 @@ const longSlots = ['9:30 a 11:00', '10:30 a 12:00', '11:30 a 13:00', '12:30 a 14
 const photoPacks = [
   { id: 'none', label: 'No quiero fotos', price: 0 },
   { id: '2_fotos', label: '2 fotos', price: 30 },
-  { id: '3_5_fotos', label: '3 a 5 fotos', price: 50, featured: true },
-  { id: 'todas', label: 'Todas las fotos', price: 80, featured: true },
+  { id: '3_5_fotos', label: '3 a 5 fotos', price: 50 },
+  { id: 'todas', label: 'Todas tus fotos', price: 80, featured: true, badge: 'MAS ELEGIDO' },
 ];
 const payMethods = ['Efectivo', 'Yape', 'Plin', 'Tarjeta', 'Transferencia', 'Otro'];
 const statusLabels = {
@@ -231,12 +231,13 @@ function ClientFlow({ navigate }) {
 
       {step === 3 && (
         <section className="panel">
-          <SectionTitle icon={<Icon label="3" />} title="Los recuerdos se viven una sola vez" />
+          <SectionTitle icon={<Icon label="3" />} title="Tus recuerdos dentro de Yakupark duran mas que el dia" />
           <p className="soft">Nuestros fotografos capturan tus mejores momentos dentro del parque para que te lleves un recuerdo inolvidable.</p>
           <div className="option-grid">
             {photoPacks.map((pack) => (
               <button key={pack.id} className={`option-card ${order.photoPack === pack.id ? 'selected' : ''} ${pack.featured ? 'featured' : ''}`} onClick={() => setOrder({ ...order, photoPack: pack.id })}>
-                {pack.featured && <span>Recomendado</span>}
+                {pack.badge && <span>{pack.badge}</span>}
+                {pack.featured && <small>Muchas familias terminan eligiendo todas sus fotos para no perder ningun momento.</small>}
                 <strong>{pack.label}</strong>
                 <b>{pack.price ? `S/${pack.price}` : 'S/0'}</b>
               </button>
@@ -312,7 +313,7 @@ function Upsell({ onUpgrade }) {
       <Icon label="+" />
       <div>
         <strong>Aprovecha mas tu experiencia</strong>
-        <p>Por solo S/30 mas llevate 90 minutos, 1 foto gratis incluida y media de regalo.</p>
+        <p>Por solo S/30 mas duplicas tu tiempo, recibis una foto gratis y una media de regalo.</p>
         <small>La experiencia mas elegida por nuestros visitantes</small>
       </div>
       <button onClick={onUpgrade}>Cambiar a Full Pass</button>
@@ -408,10 +409,42 @@ function Login({ mode, setSession, navigate }) {
 
 function Caja({ session, setSession }) {
   const [orders, setOrders] = useState([]);
+  const [todayOrders, setTodayOrders] = useState([]);
+  const [todayStatus, setTodayStatus] = useState('');
   const [query, setQuery] = useState(new URLSearchParams(location.search).get('codigo') || '');
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [todayLoading, setTodayLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState('');
+  const [todayMessage, setTodayMessage] = useState('');
+
+  const loadToday = async (status = todayStatus) => {
+    setTodayLoading(true);
+    setTodayMessage('Cargando pedidos de hoy...');
+    try {
+      const { data, error } = await supabase.rpc('staff_list_today_orders', {
+        p_session_token: session.token,
+        p_status: status || null,
+      });
+      if (error) throw error;
+      const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
+      setTodayOrders(nextOrders);
+      setTodayMessage(nextOrders.length ? '' : 'No hay pedidos registrados hoy.');
+    } catch (error) {
+      console.error('YakuExpress phase1 error:', {
+        scope: 'caja.todayOrders',
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        raw: error,
+      });
+      setTodayOrders([]);
+      setTodayMessage(`Error al cargar pedidos de hoy: ${formatSupabaseError(error)}`);
+    } finally {
+      setTodayLoading(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -442,10 +475,10 @@ function Caja({ session, setSession }) {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadToday(''); if (query) load(); }, []);
 
   const updateStatus = async (code, status) => {
-    const { error } = await supabase.rpc('staff_update_order_status', {
+    const { data, error } = await supabase.rpc('staff_update_order_status', {
       p_session_token: session.token,
       p_code: code,
       p_status: status,
@@ -453,12 +486,54 @@ function Caja({ session, setSession }) {
     if (error) throw error;
     await syncOrderToSheets(code);
     await load();
+    await loadToday();
+    return data;
   };
 
   return (
     <Shell compact>
       <section className="panel staff">
         <StaffHeader title="Caja" session={session} setSession={setSession} />
+        <div className="staff-head">
+          <h2>Pedidos de hoy</h2>
+          <button className="ghost" onClick={() => loadToday()} disabled={todayLoading}>
+            {todayLoading ? 'Actualizando...' : 'Actualizar pedidos de hoy'}
+          </button>
+        </div>
+        <div className="chips">
+          {[
+            ['', 'Todos'],
+            ['pending', 'Pendientes'],
+            ['paid', 'Pagados'],
+            ['in_fazzure', 'En Fazzure'],
+            ['cancelled', 'Cancelados'],
+          ].map(([status, label]) => (
+            <button
+              key={label}
+              className={todayStatus === status ? 'chip active' : 'chip'}
+              onClick={() => { setTodayStatus(status); loadToday(status); }}
+              disabled={todayLoading}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {todayMessage && <p className={todayMessage.startsWith('Error') ? 'error' : 'soft'}>{todayMessage}</p>}
+        <div className="today-list">
+          {todayOrders.map((order) => (
+            <button key={order.code} className="today-row" onClick={() => setSelected(order)}>
+              <strong>{order.code}</strong>
+              <span>{order.status}</span>
+              <span>{order.customer_name || '-'}</span>
+              <span>{order.payment_method || '-'}</span>
+              <b>S/{order.total || 0}</b>
+              <small>{formatTime(order.created_at)}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="panel staff">
+        <h2>Buscar pedido por codigo</h2>
         <div className="searchbar">
           <span className="search-icon">Buscar</span>
           <input value={query} onChange={(e) => setQuery(e.target.value.toUpperCase())} placeholder="Buscar por codigo YAKU-0001" />
@@ -479,7 +554,7 @@ function Caja({ session, setSession }) {
           ))}
         </div>
       </section>
-        {selected && <OrderModal order={selected} session={session} close={() => setSelected(null)} updateStatus={updateStatus} refresh={load} />}
+        {selected && <OrderModal order={selected} session={session} close={() => setSelected(null)} updateStatus={updateStatus} refresh={async () => { await load(); await loadToday(); }} />}
     </Shell>
   );
 }
@@ -502,7 +577,8 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
     setActionMessage('');
     setActionError('');
     try {
-      await action();
+      const updatedOrder = await action();
+      if (updatedOrder?.code) setSelected(updatedOrder);
       await refresh();
       setActionMessage('Pedido actualizado correctamente');
     } catch (error) {
@@ -522,7 +598,7 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
   };
 
   const save = async () => {
-    const { error } = await supabase.rpc('staff_update_order_details', {
+    const { data, error } = await supabase.rpc('staff_update_order_details', {
       p_session_token: session.token,
       p_code: order.code,
       p_customer_name: form.customer_name,
@@ -534,6 +610,7 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
     });
     if (error) throw error;
     await syncOrderToSheets(order.code);
+    return data;
   };
   return (
     <div className="modal-backdrop">
@@ -585,33 +662,62 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
 
 function Marketing({ session, setSession }) {
   const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
   const load = async () => {
-    const { data } = await supabase.rpc('staff_daily_report', { p_session_token: session.token });
-    setStats(data);
+    setLoading(true);
+    setMessage('Cargando metricas de hoy...');
+    try {
+      const { data, error } = await supabase.rpc('staff_daily_report', { p_session_token: session.token });
+      if (error) throw error;
+      setStats(data || null);
+      setMessage(data?.total_orders ? '' : 'Todavia no hay datos registrados hoy.');
+    } catch (error) {
+      console.error('YakuExpress phase1 error:', {
+        scope: 'marketing.dailyReport',
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        raw: error,
+      });
+      setStats(null);
+      setMessage(`Error al cargar marketing: ${formatSupabaseError(error)}`);
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { load(); }, []);
-  const cards = stats ? [
+  const summaryCards = stats ? [
     ['Pedidos totales', stats.total_orders],
     ['Entradas vendidas', stats.entries_sold],
     ['Full Pass vendidos', stats.full_pass],
     ['Standard vendidos', stats.standard],
     ['Premium Kids vendidos', stats.premium_kids],
     ['Kids Normal vendidos', stats.kids_normal],
-    ['Packs de fotos', stats.photo_packs],
-    ['Conversion premium', `${stats.premium_conversion}%`],
     ['Ticket promedio', `S/${stats.average_ticket}`],
     ['Total estimado', `S/${stats.estimated_total}`],
+  ] : [];
+  const conversionCards = stats ? [
+    ['Fotos vendidas / packs', stats.photo_packs],
+    ['Pedidos con fotos', `${stats.photo_percentage}%`],
+    ['Conversion Full Pass', `${stats.full_pass_conversion ?? stats.premium_conversion}%`],
     ['Metodo top', stats.top_payment_method || '-'],
     ['Horario top', stats.top_slot || '-'],
-    ['Eligio fotos', `${stats.photo_percentage}%`],
   ] : [];
   return (
     <Shell compact>
       <section className="panel staff">
         <StaffHeader title="Marketing en vivo" session={session} setSession={setSession} />
-        <button className="ghost" onClick={load}>Actualizar</button>
+        <button className="ghost" onClick={load} disabled={loading}>{loading ? 'Actualizando...' : 'Actualizar'}</button>
+        {message && <p className={message.startsWith('Error') ? 'error' : 'soft'}>{message}</p>}
+        <h2>Resumen del dia</h2>
         <div className="metric-grid">
-          {cards.map(([label, value]) => <div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}
+          {summaryCards.map(([label, value]) => <div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}
+        </div>
+        <h2>Conversion y fotografia</h2>
+        <div className="metric-grid">
+          {conversionCards.map(([label, value]) => <div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}
         </div>
       </section>
     </Shell>
