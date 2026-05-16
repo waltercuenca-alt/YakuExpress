@@ -85,6 +85,16 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .today-row { display: grid; grid-template-columns: 1.1fr .9fr 1.4fr 1fr auto auto; gap: 10px; align-items: center; text-align: left; background: white; border: 1px solid #cfeff7; box-shadow: none; color: #073b58; padding: 12px; }
 .today-row span, .today-row small { color: #4b6d7b; font-weight: 800; }
 .today-row b { color: #f28b00; }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.kpi { display: grid; gap: 6px; border-radius: 8px; padding: 12px; background: #f7fdff; border: 1px solid #cfeff7; }
+.kpi span { color: #4b6d7b; font-weight: 900; font-size: .86rem; }
+.kpi strong { font-size: 1.45rem; color: #0079a8; }
+.kpi.pending { background: #fff8df; border-color: #ffe08a; }
+.kpi.paid { background: #e8fff3; border-color: #baf0d3; }
+.kpi.in_fazzure { background: #e7f4ff; border-color: #b9defa; }
+.kpi.cancelled { background: #fff0f0; border-color: #ffc8c8; }
+.quick-charge { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid #cfeff7; border-radius: 8px; background: #f7fdff; }
+.quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 24, 38, .55); display: grid; place-items: center; padding: 16px; z-index: 10; }
 .modal { width: min(620px, 100%); max-height: 92vh; overflow: auto; background: white; border-radius: 8px; padding: 18px; position: relative; }
 .close { position: absolute; right: 12px; top: 12px; }
@@ -103,7 +113,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .brand-pill { width: 100%; text-align: center; }
   .hero { padding: 22px 16px; }
   .hero .app-icon { display: none; }
-  .cards, .option-grid, .form-grid, .metric-grid, .slots, .status-grid { grid-template-columns: 1fr; }
+  .cards, .option-grid, .form-grid, .metric-grid, .slots, .status-grid, .kpi-grid, .quick-grid { grid-template-columns: 1fr; }
   .order-row { grid-template-columns: 1fr; }
   .today-row { grid-template-columns: 1fr 1fr; }
   .actions { align-items: stretch; }

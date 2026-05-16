@@ -411,12 +411,46 @@ function Caja({ session, setSession }) {
   const [orders, setOrders] = useState([]);
   const [todayOrders, setTodayOrders] = useState([]);
   const [todayStatus, setTodayStatus] = useState('');
+  const [cashierSummary, setCashierSummary] = useState(null);
   const [query, setQuery] = useState(new URLSearchParams(location.search).get('codigo') || '');
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
   const [todayLoading, setTodayLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState('');
   const [todayMessage, setTodayMessage] = useState('');
+  const [summaryMessage, setSummaryMessage] = useState('');
+
+  const logCajaProError = (scope, error, extra = {}) => {
+    console.error('YakuExpress fase2 caja pro error:', {
+      scope,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code,
+      raw: error,
+      ...extra,
+    });
+  };
+
+  const loadSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryMessage('Cargando resumen...');
+    try {
+      const { data, error } = await supabase.rpc('staff_cashier_summary_today', {
+        p_session_token: session.token,
+      });
+      if (error) throw error;
+      setCashierSummary(data || {});
+      setSummaryMessage('');
+    } catch (error) {
+      logCajaProError('caja.summary', error);
+      setCashierSummary(null);
+      setSummaryMessage(`Error suave al actualizar resumen: ${formatSupabaseError(error)}`);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   const loadToday = async (status = todayStatus) => {
     setTodayLoading(true);
@@ -431,19 +465,16 @@ function Caja({ session, setSession }) {
       setTodayOrders(nextOrders);
       setTodayMessage(nextOrders.length ? '' : 'No hay pedidos registrados hoy.');
     } catch (error) {
-      console.error('YakuExpress phase1 error:', {
-        scope: 'caja.todayOrders',
-        message: error?.message,
-        details: error?.details,
-        hint: error?.hint,
-        code: error?.code,
-        raw: error,
-      });
+      logCajaProError('caja.todayOrders', error, { status });
       setTodayOrders([]);
-      setTodayMessage(`Error al cargar pedidos de hoy: ${formatSupabaseError(error)}`);
+      setTodayMessage(`Error suave al cargar pedidos de hoy: ${formatSupabaseError(error)}`);
     } finally {
       setTodayLoading(false);
     }
+  };
+
+  const refreshCaja = async (status = todayStatus) => {
+    await Promise.all([loadSummary(), loadToday(status)]);
   };
 
   const load = async () => {
@@ -451,31 +482,40 @@ function Caja({ session, setSession }) {
     setSearchMessage('Buscando pedido...');
     try {
       const normalizedQuery = normalizeOrderSearch(query);
-      const { data, error } = await supabase.rpc('staff_list_orders', {
+      if (!normalizedQuery) {
+        setOrders([]);
+        setSearchMessage('Ingresa codigo, nombre, DNI/RUC o telefono.');
+        return;
+      }
+      const { data, error } = await supabase.rpc('staff_search_orders', {
         p_session_token: session.token,
-        p_query: normalizedQuery || null,
+        p_query: normalizedQuery,
       });
       if (error) throw error;
       const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
       setOrders(nextOrders);
-      setSearchMessage(nextOrders.length ? '' : 'Pedido no encontrado');
+      if (nextOrders.length === 1) {
+        setSelected(nextOrders[0]);
+        setSearchMessage('Pedido encontrado.');
+      } else if (nextOrders.length > 1) {
+        setSearchMessage(`${nextOrders.length} pedidos encontrados.`);
+      } else {
+        setSearchMessage('No encontramos pedidos con ese dato.');
+      }
     } catch (error) {
-      console.error('YakuExpress caja search error:', {
-        message: error?.message,
-        details: error?.details,
-        hint: error?.hint,
-        code: error?.code,
-        raw: error,
-        query,
-        session,
-      });
+      logCajaProError('caja.search', error, { query });
       setOrders([]);
       setSearchMessage(`Error al buscar pedido: ${formatSupabaseError(error)}`);
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => { loadToday(''); if (query) load(); }, []);
+  useEffect(() => {
+    refreshCaja('');
+    if (query) load();
+    const timer = window.setInterval(() => refreshCaja(), 10000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const updateStatus = async (code, status) => {
     const { data, error } = await supabase.rpc('staff_update_order_status', {
@@ -486,7 +526,7 @@ function Caja({ session, setSession }) {
     if (error) throw error;
     await syncOrderToSheets(code);
     await load();
-    await loadToday();
+    await refreshCaja();
     return data;
   };
 
@@ -495,11 +535,35 @@ function Caja({ session, setSession }) {
       <section className="panel staff">
         <StaffHeader title="Caja" session={session} setSession={setSession} />
         <div className="staff-head">
+          <h2>Resumen de caja hoy</h2>
+          <small>Actualizacion automatica cada 10s</small>
+        </div>
+        {summaryMessage && <p className={summaryMessage.startsWith('Error') ? 'error' : 'soft'}>{summaryMessage}</p>}
+        <div className="kpi-grid">
+          {[
+            ['Pedidos', cashierSummary?.total_orders ?? 0, 'neutral'],
+            ['Pendientes', cashierSummary?.pending_orders ?? 0, 'pending'],
+            ['Pagados', cashierSummary?.paid_orders ?? 0, 'paid'],
+            ['En Fazzure', cashierSummary?.in_fazzure_orders ?? 0, 'in_fazzure'],
+            ['Cancelados', cashierSummary?.cancelled_orders ?? 0, 'cancelled'],
+            ['Total', `S/${cashierSummary?.total_sales ?? 0}`, 'paid'],
+            ['Ticket promedio', `S/${cashierSummary?.avg_ticket ?? 0}`, 'neutral'],
+          ].map(([label, value, tone]) => (
+            <div key={label} className={`kpi ${tone}`}>
+              <span>{label}</span>
+              <strong>{summaryLoading ? '...' : value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="panel staff">
+        <div className="staff-head">
           <h2>Pedidos de hoy</h2>
-          <button className="ghost" onClick={() => loadToday()} disabled={todayLoading}>
+          <button className="ghost" onClick={() => refreshCaja()} disabled={todayLoading || summaryLoading}>
             {todayLoading ? 'Actualizando...' : 'Actualizar pedidos de hoy'}
           </button>
         </div>
+        <small className="soft">Actualizacion automatica cada 10s</small>
         <div className="chips">
           {[
             ['', 'Todos'],
@@ -511,7 +575,7 @@ function Caja({ session, setSession }) {
             <button
               key={label}
               className={todayStatus === status ? 'chip active' : 'chip'}
-              onClick={() => { setTodayStatus(status); loadToday(status); }}
+              onClick={() => { setTodayStatus(status); refreshCaja(status); }}
               disabled={todayLoading}
             >
               {label}
@@ -533,10 +597,10 @@ function Caja({ session, setSession }) {
         </div>
       </section>
       <section className="panel staff">
-        <h2>Buscar pedido por codigo</h2>
+        <h2>Busqueda inteligente</h2>
         <div className="searchbar">
           <span className="search-icon">Buscar</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value.toUpperCase())} placeholder="Buscar por codigo YAKU-0001" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Codigo, nombre, DNI/RUC o telefono" />
           <button onClick={load} disabled={loading}>{loading ? 'Buscando...' : 'Actualizar'}</button>
         </div>
         {searchMessage && <p className={searchMessage.startsWith('Error') ? 'error' : 'soft'}>{searchMessage}</p>}
@@ -554,12 +618,23 @@ function Caja({ session, setSession }) {
           ))}
         </div>
       </section>
-        {selected && <OrderModal order={selected} session={session} close={() => setSelected(null)} updateStatus={updateStatus} refresh={async () => { await load(); await loadToday(); }} />}
+        {selected && (
+          <OrderModal
+            order={selected}
+            session={session}
+            close={() => setSelected(null)}
+            updateStatus={updateStatus}
+            onOrderUpdated={(updatedOrder) => {
+              if (updatedOrder?.code) setSelected(updatedOrder);
+            }}
+            refresh={async () => { await load(); await refreshCaja(); }}
+          />
+        )}
     </Shell>
   );
 }
 
-function OrderModal({ order, session, close, updateStatus, refresh }) {
+function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdated }) {
   const [form, setForm] = useState({
     customer_name: order.customer_name || '',
     document_number: order.document_number || '',
@@ -571,6 +646,7 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
   const [actionMessage, setActionMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [chargingMethod, setChargingMethod] = useState('');
 
   const runAction = async (action) => {
     setSaving(true);
@@ -578,11 +654,12 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
     setActionError('');
     try {
       const updatedOrder = await action();
-      if (updatedOrder?.code) setSelected(updatedOrder);
+      if (updatedOrder?.code) onOrderUpdated?.(updatedOrder);
       await refresh();
-      setActionMessage('Pedido actualizado correctamente');
+      setActionMessage((current) => current || 'Pedido actualizado correctamente');
     } catch (error) {
-      console.error('YakuExpress caja action error:', {
+      console.error('YakuExpress fase2 caja pro error:', {
+        scope: 'caja.orderAction',
         message: error?.message,
         details: error?.details,
         hint: error?.hint,
@@ -611,6 +688,24 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
     if (error) throw error;
     await syncOrderToSheets(order.code);
     return data;
+  };
+
+  const quickCharge = async (method) => {
+    setChargingMethod(method);
+    try {
+      const { data, error } = await supabase.rpc('staff_quick_charge', {
+        p_session_token: session.token,
+        p_code: order.code,
+        p_payment_method: method,
+      });
+      if (error) throw error;
+      await syncOrderToSheets(order.code);
+      setForm({ ...form, payment_method: method });
+      setActionMessage(`Pedido marcado como pagado con ${method}`);
+      return data;
+    } finally {
+      setChargingMethod('');
+    }
   };
   return (
     <div className="modal-backdrop">
@@ -642,6 +737,16 @@ function OrderModal({ order, session, close, updateStatus, refresh }) {
         </div>
         {actionMessage && <p className="success">{actionMessage}</p>}
         {actionError && <p className="error">{actionError}</p>}
+        <div className="quick-charge">
+          <strong>Cobro rapido</strong>
+          <div className="quick-grid">
+            {['Efectivo', 'Yape', 'Plin', 'Tarjeta'].map((method) => (
+              <button key={method} disabled={saving || Boolean(chargingMethod)} onClick={() => runAction(() => quickCharge(method))}>
+                {chargingMethod === method ? 'Cobrando...' : `Cobrar ${method.toLowerCase()}`}
+              </button>
+            ))}
+          </div>
+        </div>
         <button className="wide" onClick={() => runAction(save)} disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
         <div className="status-grid">
           {[
