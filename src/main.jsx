@@ -439,36 +439,78 @@ function SlotChooser({ item, value, onChange }) {
 
 function Confirmation({ order, setOrder, setStep, navigate }) {
   const qrValue = `${location.origin}${withBasePath(`/caja?codigo=${order.code}`)}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrValue)}`;
-  const expired = order.expires_at && new Date(order.expires_at) < new Date();
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(qrValue)}`;
+  const [now, setNow] = useState(Date.now());
+  const expiresAt = order.expires_at ? new Date(order.expires_at).getTime() : 0;
+  const remainingMs = expiresAt ? Math.max(0, expiresAt - now) : null;
+  const expired = expiresAt ? remainingMs <= 0 : false;
+  const countdown = remainingMs === null ? 'Sin vencimiento registrado' : formatCountdown(remainingMs);
+
+  useEffect(() => {
+    if (!expiresAt || expired) return undefined;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt, expired]);
+
   const createNewOrder = () => {
     localStorage.removeItem('yakuexpress_draft');
     setOrder(newDraft());
     setStep(1);
   };
+
   return (
     <Shell>
-      <section className="done">
+      <section className="done confirmation">
         {expired ? (
           <>
             <h1>Tu pedido expiro</h1>
-            <p>Por favor realiza uno nuevo.</p>
-            <button onClick={createNewOrder}>Crear nuevo pedido</button>
+            <p className="soft">El QR ya no esta disponible para caja. Crea un pedido nuevo para generar un codigo actualizado.</p>
+            <button className="wide" onClick={createNewOrder}>Crear nuevo pedido</button>
           </>
         ) : (
           <>
-            <button className="ghost wide" onClick={createNewOrder}>Crear nuevo pedido</button>
-            <Icon label="OK" large />
-            <h1>Mostra este codigo en caja</h1>
-            <div className="code">{order.code}</div>
-            <div className="qr"><img src={qrUrl} alt={`QR del pedido ${order.code}`} width="260" height="260" /></div>
-            <p>Vence: {formatDate(order.expires_at)}</p>
-            <Summary order={order} total={order.total || calcTotal(order)} />
+            <div className="confirmation-head">
+              <Icon label="OK" large />
+              <div>
+                <p className="success">Pedido generado correctamente</p>
+                <h1>Mostrá este QR en caja</h1>
+                <span>La persona de caja puede escanearlo o buscar el codigo YAKU manualmente.</span>
+              </div>
+            </div>
+
+            <div className="qr-layout">
+              <div className="qr-card">
+                <div className="code-label">Codigo de pedido</div>
+                <div className="code">{order.code}</div>
+                <div className="qr"><img src={qrUrl} alt={`QR del pedido ${order.code}`} width="320" height="320" /></div>
+                <p className="qr-hint">Manten esta pantalla abierta, con el codigo visible y el brillo alto.</p>
+              </div>
+
+              <div className="confirmation-side">
+                <div className={`expiry-card ${remainingMs !== null && remainingMs <= 15 * 60 * 1000 ? 'urgent' : ''}`}>
+                  <span>Tiempo para usar este QR</span>
+                  <strong aria-live="polite">{countdown}</strong>
+                  <small>Vence: {formatDate(order.expires_at)}</small>
+                </div>
+
+                <div className="cashier-instructions">
+                  <strong>Instrucciones para caja</strong>
+                  <ol>
+                    <li>Escanear el QR o buscar el codigo {order.code}.</li>
+                    <li>Revisar entradas, horario, fotos y total.</li>
+                    <li>Cobrar y marcar el pedido como Pagado o En Fazzure.</li>
+                  </ol>
+                </div>
+
+                <Summary order={order} total={order.total || calcTotal(order)} />
+              </div>
+            </div>
+
             <div className="actions">
-              <button className="ghost" onClick={() => setStep(1)}>Editar pedido</button>
+              <button className="ghost edit-before-pay" onClick={() => setStep(1)}>Editar antes de pagar</button>
+              <button className="ghost" onClick={createNewOrder}>Crear nuevo pedido</button>
               <button onClick={() => navigate('/caja')}>Ir a caja</button>
             </div>
-            <button className="wide" onClick={createNewOrder}>Crear nuevo pedido</button>
           </>
         )}
       </section>
@@ -1027,6 +1069,15 @@ function customerValidation(order) {
   return errors;
 }
 function formatDate(value) { return value ? new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '-'; }
+function formatCountdown(ms) {
+  if (ms <= 0) return '00:00';
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+}
 function formatTime(value) {
   if (!value) return '—';
   const date = new Date(value);

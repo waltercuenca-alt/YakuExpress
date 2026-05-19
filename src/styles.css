@@ -132,8 +132,29 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .done { text-align: center; display: grid; gap: 12px; place-items: center; }
 .done h1 { margin: 0; font-size: clamp(2rem, 7vw, 4rem); letter-spacing: 0; }
 .code { font-size: 2.4rem; font-weight: 1000; color: #0079a8; letter-spacing: 0; }
-.qr { background: white; padding: 18px; border-radius: 8px; border: 1px solid #d6eef5; }
-.qr img { display: block; width: min(260px, 72vw); height: auto; }
+.confirmation { text-align: left; align-items: stretch; justify-items: stretch; }
+.confirmation h1 { font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.04; }
+.confirmation-head { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.confirmation-head .success { margin: 0 0 8px; display: inline-flex; }
+.confirmation-head span { color: #356178; font-weight: 900; line-height: 1.35; }
+.qr-layout { display: grid; grid-template-columns: minmax(300px, .9fr) 1fr; gap: 14px; align-items: start; }
+.qr-card, .expiry-card, .cashier-instructions { border: 1px solid #cfeff7; border-radius: 8px; background: #f7fdff; padding: 14px; }
+.qr-card { display: grid; gap: 10px; justify-items: center; text-align: center; background: white; border-width: 2px; }
+.code-label { color: #4b6d7b; font-size: .84rem; font-weight: 1000; text-transform: uppercase; }
+.qr-card .code { font-size: clamp(2.2rem, 7vw, 3.35rem); line-height: 1; }
+.qr { background: white; padding: 12px; border-radius: 8px; border: 3px solid #00a9d8; box-shadow: 0 14px 32px rgba(0, 169, 216, .16); }
+.qr img { display: block; width: min(320px, 76vw); height: auto; }
+.qr-hint { margin: 0; color: #245369; font-weight: 900; line-height: 1.35; }
+.confirmation-side { display: grid; gap: 12px; }
+.expiry-card { display: grid; gap: 6px; background: #e8fff3; border-color: #baf0d3; }
+.expiry-card span, .expiry-card small { color: #356178; font-weight: 900; }
+.expiry-card strong { color: #087a43; font-size: clamp(2rem, 7vw, 3.3rem); line-height: 1; }
+.expiry-card.urgent { background: #fff8df; border-color: #ffe08a; }
+.expiry-card.urgent strong { color: #8a4b00; }
+.cashier-instructions { display: grid; gap: 8px; }
+.cashier-instructions strong { color: #0079a8; }
+.cashier-instructions ol { margin: 0; padding-left: 22px; color: #245369; font-weight: 900; line-height: 1.45; }
+.edit-before-pay { border-color: #ffce60; background: #fff9e8; }
 .login { width: min(440px, 100%); margin: 30px auto; display: grid; gap: 14px; }
 .staff { display: grid; gap: 14px; }
 .searchbar { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: #e7faff; padding: 8px; border-radius: 8px; }
@@ -178,7 +199,8 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .hero-benefits b { flex: 1 1 calc(50% - 8px); text-align: center; }
   .client-intro, .how-steps { grid-template-columns: 1fr; }
   .how-steps div { grid-template-columns: auto 1fr; }
-  .cards, .option-grid, .form-grid, .metric-grid, .slots, .status-grid, .kpi-grid, .quick-grid, .receipt-grid { grid-template-columns: 1fr; }
+  .cards, .option-grid, .form-grid, .metric-grid, .slots, .status-grid, .kpi-grid, .quick-grid, .receipt-grid, .qr-layout, .confirmation-head { grid-template-columns: 1fr; }
+  .confirmation-head { text-align: center; justify-items: center; }
   .upsell { grid-template-columns: 1fr; }
   .upsell-actions { min-width: 0; }
   .order-row { grid-template-columns: 1fr; }
