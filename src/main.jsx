@@ -4,19 +4,19 @@ import { supabase, syncOrderToSheets } from './supabase.js';
 import './styles.css';
 
 const products = [
-  { id: 'standard', name: 'Pulsera Standard', price: 50, minutes: 45, badge: '', details: ['45 minutos'] },
-  { id: 'full_pass', name: 'Full Pass', price: 80, minutes: 90, badge: 'MAS ELEGIDO', details: ['90 minutos dentro del parque + 1 foto gratis + media de regalo'], hero: true },
-  { id: 'premium_kids', name: 'Premium Kids', price: 60, minutes: 90, badge: '', details: ['90 minutos'] },
-  { id: 'kids_normal', name: 'Kids Normal', price: 30, minutes: 45, badge: '', details: ['45 minutos'] },
+  { id: 'standard', name: 'Pulsera Standard', price: 50, minutes: 45, subtitle: '45 minutos dentro del parque', note: 'Ideal si queres una experiencia rapida.', details: ['45 minutos'] },
+  { id: 'full_pass', name: 'Full Pass', price: 80, minutes: 90, subtitle: '90 minutos dentro del parque', badge: 'MAS ELEGIDO', secondBadge: 'MEJOR EXPERIENCIA', details: ['90 minutos de diversion', '1 foto gratis incluida', 'media de regalo', 'mas tiempo para disfrutar'], microcopy: 'Por S/30 mas que Standard, duplicas tu tiempo y te llevas 1 foto gratis.', hero: true },
+  { id: 'premium_kids', name: 'Premium Kids', price: 60, minutes: 90, subtitle: '90 minutos para ninos', details: ['90 minutos para ninos'] },
+  { id: 'kids_normal', name: 'Kids Normal', price: 30, minutes: 45, subtitle: '45 minutos para ninos', details: ['45 minutos para ninos'] },
 ];
 
 const shortSlots = ['9:30 a 10:15', '10:30 a 11:15', '11:30 a 12:15', '12:30 a 13:15', '13:30 a 14:15', '14:30 a 15:15', '15:30 a 16:15', '16:30 a 17:15', '17:15 a 18:00'];
 const longSlots = ['9:30 a 11:00', '10:30 a 12:00', '11:30 a 13:00', '12:30 a 14:00', '13:30 a 15:00', '14:30 a 16:00', '15:30 a 17:00', '16:30 a 18:00'];
 const photoPacks = [
-  { id: 'none', label: 'No quiero fotos', price: 0 },
-  { id: '2_fotos', label: '2 fotos', price: 30 },
-  { id: '3_5_fotos', label: '3 a 5 fotos', price: 50 },
-  { id: 'todas', label: 'Todas tus fotos', price: 80, featured: true, badge: 'MAS ELEGIDO' },
+  { id: 'none', label: 'No quiero fotos', price: 0, description: 'Solo quiero disfrutar el parque.' },
+  { id: '2_fotos', label: '2 fotos', price: 30, description: 'Un recuerdo simple de tu experiencia.' },
+  { id: '3_5_fotos', label: '3 a 5 fotos', price: 50, description: 'Mas momentos para compartir con tu familia o amigos.', recommended: true },
+  { id: 'todas', label: 'Todas tus fotos', price: 80, description: 'No te pierdas ningun momento del dia.', featured: true, badge: 'MAS ELEGIDO', microcopy: 'Muchas familias eligen este pack para no perder ningun recuerdo.' },
 ];
 const payMethods = ['Efectivo', 'Yape', 'Plin', 'Tarjeta', 'Transferencia', 'Otro'];
 const statusLabels = {
@@ -109,10 +109,12 @@ function ClientFlow({ navigate }) {
   const [order, setOrder] = useState(saved || newDraft());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [dismissedUpsells, setDismissedUpsells] = useState({});
+  const [scheduleNotice, setScheduleNotice] = useState('');
 
   const items = safeItems(order);
   const total = useMemo(() => calcTotal(order), [order]);
-  const hasStandard = items.some((item) => item.product_id === 'standard');
+  const customerErrors = customerValidation(order);
 
   useEffect(() => saveDraft(order), [order]);
 
@@ -121,8 +123,20 @@ function ClientFlow({ navigate }) {
     setOrder({ ...order, items: nextItems });
   };
 
+  const upgradeStandardEntry = (index) => {
+    const current = safeItems(order)[index];
+    const nextSlot = equivalentSlotForProduct(current?.slot, 'full_pass') || firstSlotForProduct('full_pass');
+    setItem(index, { product_id: 'full_pass', slot: nextSlot });
+    setScheduleNotice('Actualizamos el horario segun la duracion del Full Pass.');
+  };
+
   const applySameSlot = (slot) => {
-    setOrder({ ...order, sameSlot: true, items: safeItems(order).map((item) => ({ ...item, slot })) });
+    const start = slotStart(slot);
+    setOrder({
+      ...order,
+      sameSlot: true,
+      items: safeItems(order).map((item) => ({ ...item, slot: equivalentSlotForProduct(start, item.product_id) || firstSlotForProduct(item.product_id) })),
+    });
   };
 
   const submit = async () => {
@@ -178,9 +192,28 @@ function ClientFlow({ navigate }) {
       <section className="hero">
         <div>
           <p>YakuExpress</p>
-          <h1>Elegí, confirmá y llegá a caja con tu pedido listo.</h1>
+          <h1>Compra rapida YakuExpress</h1>
+          <span>Evitá filas y prepará tu ingreso a Yakupark en menos de 1 minuto.</span>
+          <div className="hero-benefits">
+            <b>Mas rapido en caja</b>
+            <b>Reserva tu ingreso</b>
+            <b>Agrega tus fotos del dia</b>
+            <b>Disfruta mas tiempo</b>
+          </div>
         </div>
         <Icon label="A" large />
+      </section>
+
+      <section className="client-intro">
+        <div className="trust-strip">
+          <strong>Seguro y rapido</strong>
+          <span>Tu pedido se guarda automaticamente y podras mostrar tu codigo QR en caja.</span>
+        </div>
+        <div className="how-steps">
+          <div><strong>1</strong><span>Elegi tus entradas</span></div>
+          <div><strong>2</strong><span>Personaliza tu experiencia</span></div>
+          <div><strong>3</strong><span>Mostra tu QR en caja</span></div>
+        </div>
       </section>
 
       <Progress step={step} />
@@ -203,27 +236,52 @@ function ClientFlow({ navigate }) {
           <button className="ghost wide" onClick={() => setOrder({ ...order, items: [...safeItems(order), blankItem()] })}>
             + Agregar entrada
           </button>
-          {hasStandard && <Upsell onUpgrade={() => setOrder({ ...order, items: safeItems(order).map((item) => (item.product_id === 'standard' ? { ...item, product_id: 'full_pass', slot: '' } : item)) })} />}
+          <div className="upsell-list">
+            {items.map((item, index) => (
+              item.product_id === 'standard' && !dismissedUpsells[item.uid || index] ? (
+                <Upsell
+                  key={item.uid || index}
+                  entryNumber={index + 1}
+                  onUpgrade={() => upgradeStandardEntry(index)}
+                  onDismiss={() => setDismissedUpsells({ ...dismissedUpsells, [item.uid || index]: true })}
+                />
+              ) : null
+            ))}
+          </div>
           <Next onClick={() => setStep(2)} disabled={items.some((item) => !item.product_id)} />
         </section>
       )}
 
       {step === 2 && (
         <section className="panel">
-          <SectionTitle icon={<Icon label="2" />} title="Elegí horarios" />
-          <label className="check-row">
-            <input type="checkbox" checked={order.sameSlot} onChange={(e) => setOrder({ ...order, sameSlot: e.target.checked })} />
-            <span>Mismo horario para todo el grupo</span>
-          </label>
+          <SectionTitle icon={<Icon label="2" />} title="Elegi tu horario de ingreso" />
+          <p className="soft">Selecciona el horario que mejor se acomode a tu experiencia.</p>
+          {scheduleNotice && <p className="schedule-notice">{scheduleNotice}</p>}
+          {items.length > 1 && (
+            <label className="check-row schedule-toggle">
+              <input type="checkbox" checked={order.sameSlot} onChange={(e) => setOrder({ ...order, sameSlot: e.target.checked })} />
+              <span>
+                <strong>Mismo horario para todo el grupo</strong>
+                <small>Ideal para familias o grupos que entran juntos.</small>
+              </span>
+            </label>
+          )}
           {order.sameSlot ? (
-            <SlotChooser item={items[0]} value={items[0]?.slot || ''} onChange={applySameSlot} />
+            <div className="mini-panel schedule-card">
+              <strong>Horario del grupo</strong>
+              <small>Se respeta la duracion de cada entrada segun su producto.</small>
+              <SlotChooser item={items[0]} value={items[0]?.slot || ''} onChange={applySameSlot} />
+            </div>
           ) : (
-            items.map((item, index) => (
-              <div className="mini-panel" key={item.uid || `${item.product_id}-${index}`}>
-                <strong>{productById(item.product_id).name}</strong>
-                <SlotChooser item={item} value={item.slot} onChange={(slot) => setItem(index, { slot })} />
-              </div>
-            ))
+            <>
+              <p className="soft compact-help">Tambien podes elegir horarios distintos para cada entrada.</p>
+              {items.map((item, index) => (
+                <div className="mini-panel schedule-card" key={item.uid || `${item.product_id}-${index}`}>
+                  <strong>Entrada {index + 1}: {productById(item.product_id).name}</strong>
+                  <SlotChooser item={item} value={item.slot} onChange={(slot) => setItem(index, { slot })} />
+                </div>
+              ))}
+            </>
           )}
           <StepActions back={() => setStep(1)} next={() => setStep(3)} disabled={items.some((item) => !item.slot)} />
         </section>
@@ -233,13 +291,21 @@ function ClientFlow({ navigate }) {
         <section className="panel">
           <SectionTitle icon={<Icon label="3" />} title="Tus recuerdos dentro de Yakupark duran mas que el dia" />
           <p className="soft">Nuestros fotografos capturan tus mejores momentos dentro del parque para que te lleves un recuerdo inolvidable.</p>
+          {items.some((item) => item.product_id === 'full_pass') && (
+            <div className="photo-pass-note">
+              <strong>Ya tenes 1 foto gratis incluida con tu Full Pass</strong>
+              <span>Podes completar tu recuerdo agregando mas fotos de tu experiencia.</span>
+            </div>
+          )}
           <div className="option-grid">
             {photoPacks.map((pack) => (
               <button key={pack.id} className={`option-card ${order.photoPack === pack.id ? 'selected' : ''} ${pack.featured ? 'featured' : ''}`} onClick={() => setOrder({ ...order, photoPack: pack.id })}>
+                {order.photoPack === pack.id && <span className="selected-check">OK</span>}
                 {pack.badge && <span>{pack.badge}</span>}
-                {pack.featured && <small>Muchas familias terminan eligiendo todas sus fotos para no perder ningun momento.</small>}
                 <strong>{pack.label}</strong>
                 <b>{pack.price ? `S/${pack.price}` : 'S/0'}</b>
+                <small>{pack.description}</small>
+                {pack.microcopy && <em>{pack.microcopy}</em>}
               </button>
             ))}
           </div>
@@ -249,23 +315,36 @@ function ClientFlow({ navigate }) {
 
       {step === 4 && (
         <section className="panel">
-          <SectionTitle icon={<Icon label="4" />} title="Datos para caja" />
-          <div className="toggle">
+          <SectionTitle icon={<Icon label="4" />} title="Datos del responsable" />
+          <p className="soft">Solo necesitamos los datos de una persona del grupo para preparar tu comprobante en caja.</p>
+          <p className="trust-copy">Tus datos se usan unicamente para preparar tu pedido y agilizar la atencion.</p>
+          <div className="receipt-grid">
             {['boleta', 'factura'].map((type) => (
-              <button key={type} className={order.receiptType === type ? 'active' : ''} onClick={() => setOrder({ ...order, receiptType: type, customerName: '', documentNumber: '' })}>
-                {type === 'boleta' ? 'Boleta' : 'Factura'}
+              <button key={type} className={`receipt-card ${order.receiptType === type ? 'active' : ''}`} onClick={() => setOrder({ ...order, receiptType: type, customerName: '', documentNumber: '' })}>
+                {order.receiptType === type && <span className="selected-check">OK</span>}
+                <strong>{type === 'boleta' ? 'Boleta' : 'Factura'}</strong>
+                <small>{type === 'boleta' ? 'Para personas naturales' : 'Para empresas o RUC'}</small>
               </button>
             ))}
           </div>
-          <div className="form-grid">
-            <Field label={order.receiptType === 'boleta' ? 'Nombre' : 'Razon social'} value={order.customerName} onChange={(v) => setOrder({ ...order, customerName: v })} />
-            <Field label={order.receiptType === 'boleta' ? 'DNI' : 'RUC'} value={order.documentNumber} onChange={(v) => setOrder({ ...order, documentNumber: v.replace(/\D/g, '') })} inputMode="numeric" />
-            <Field label="Correo" value={order.email} onChange={(v) => setOrder({ ...order, email: v })} type="email" />
-            <Field label="Telefono" value={order.phone} onChange={(v) => setOrder({ ...order, phone: v.replace(/\D/g, '') })} inputMode="tel" />
+          <div className="form-section">
+            <strong>Datos principales</strong>
+            <div className="form-grid">
+              <Field label={order.receiptType === 'boleta' ? 'Nombre completo' : 'Razon social'} placeholder={order.receiptType === 'boleta' ? 'Ej: Walter Cuenca' : 'Nombre de la empresa'} value={order.customerName} error={customerErrors.customerName} onChange={(v) => setOrder({ ...order, customerName: v })} />
+              <Field label={order.receiptType === 'boleta' ? 'DNI' : 'RUC'} placeholder={order.receiptType === 'boleta' ? '8 digitos' : '11 digitos'} value={order.documentNumber} error={customerErrors.documentNumber} onChange={(v) => setOrder({ ...order, documentNumber: v.replace(/\D/g, '') })} inputMode="numeric" />
+            </div>
+          </div>
+          <div className="form-section">
+            <strong>Contacto</strong>
+            <div className="form-grid">
+              <Field label="Correo" placeholder={order.receiptType === 'boleta' ? 'tu correo' : 'correo para el comprobante'} value={order.email} error={customerErrors.email} onChange={(v) => setOrder({ ...order, email: v })} type="email" />
+              <Field label="Telefono" placeholder="numero de contacto" value={order.phone} error={customerErrors.phone} onChange={(v) => setOrder({ ...order, phone: v.replace(/\D/g, '') })} inputMode="numeric" />
+            </div>
           </div>
           <label className="field">
-            <span>Comentarios / observaciones</span>
-            <textarea value={order.comments} onChange={(e) => setOrder({ ...order, comments: e.target.value })} rows="3" />
+            <span>Comentarios para caja</span>
+            <textarea value={order.comments} placeholder="Ej: cumpleaños, grupo familiar, movilidad, detalle especial..." onChange={(e) => setOrder({ ...order, comments: e.target.value })} rows="3" />
+            <small>Este campo es opcional.</small>
           </label>
           <p className="payment-note">El pago se realiza en caja</p>
           <div className="chips">
@@ -294,12 +373,19 @@ function EntryPicker({ item, index, canRemove, setItem, remove }) {
       <div className="cards">
         {products.map((product) => (
           <button key={product.id} className={`product-card ${item.product_id === product.id ? 'selected' : ''} ${product.hero ? 'hero-card' : ''}`} onClick={() => setItem(index, { product_id: product.id, slot: '' })}>
-            {product.badge && <span className="badge">{product.badge}</span>}
-            {product.hero && <span className="badge second">MEJOR EXPERIENCIA</span>}
-            <strong>{product.name}</strong>
-            <b>S/{product.price}</b>
-            <small>{product.minutes} min</small>
+            {item.product_id === product.id && <span className="selected-check">OK</span>}
+            <div className="product-badges">
+              {product.badge && <span className="badge">{product.badge}</span>}
+              {product.secondBadge && <span className="badge second">{product.secondBadge}</span>}
+            </div>
+            <div className="product-title-row">
+              <strong>{product.name}</strong>
+              <b>S/{product.price}</b>
+            </div>
+            <small>{product.subtitle}</small>
+            {product.note && <em>{product.note}</em>}
             <ul>{product.details.map((detail) => <li key={detail}>OK {detail}</li>)}</ul>
+            {product.microcopy && <p className="product-microcopy">{product.microcopy}</p>}
           </button>
         ))}
       </div>
@@ -307,30 +393,47 @@ function EntryPicker({ item, index, canRemove, setItem, remove }) {
   );
 }
 
-function Upsell({ onUpgrade }) {
+function Upsell({ entryNumber, onUpgrade, onDismiss }) {
   return (
     <div className="upsell">
-      <Icon label="+" />
-      <div>
-        <strong>Aprovecha mas tu experiencia</strong>
-        <p>Por solo S/30 mas duplicas tu tiempo, recibis una foto gratis y una media de regalo.</p>
-        <small>La experiencia mas elegida por nuestros visitantes</small>
+      <div className="upsell-badge">Recomendado</div>
+      <div className="upsell-copy">
+        <strong>Entrada {entryNumber}: Mejora tu experiencia</strong>
+        <p>Por solo S/30 mas, duplicas tu tiempo dentro del parque y te llevas una foto gratis.</p>
+        <ul>
+          <li>90 minutos en vez de 45</li>
+          <li>1 foto gratis incluida</li>
+          <li>media de regalo</li>
+          <li>mas tiempo para disfrutar sin apuro</li>
+        </ul>
+        <small>La mayoria elige Full Pass para aprovechar mejor el dia.</small>
       </div>
-      <button onClick={onUpgrade}>Cambiar a Full Pass</button>
+      <div className="upsell-actions">
+        <button onClick={onUpgrade}>Cambiar esta entrada a Full Pass</button>
+        <button className="ghost" onClick={onDismiss}>No, continuar con Standard</button>
+      </div>
     </div>
   );
 }
 
 function SlotChooser({ item, value, onChange }) {
-  const slots = productById(item.product_id).minutes === 90 ? longSlots : shortSlots;
+  const product = productById(item.product_id);
+  const slots = product.minutes === 90 ? longSlots : shortSlots;
   return (
-    <div className="slots">
-      {slots.map((slot) => (
-        <button key={slot} className={value === slot ? 'slot active' : 'slot'} onClick={() => onChange(slot)}>
-          {slot}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="slot-meta">
+        <span>Duracion: {product.minutes} minutos</span>
+        <small>Horarios disponibles para esta entrada</small>
+      </div>
+      <div className="slots">
+        {slots.map((slot) => (
+          <button key={slot} className={value === slot ? 'slot active' : 'slot'} onClick={() => onChange(slot)}>
+            {value === slot && <span className="slot-check">OK</span>}
+            {formatSlot(slot)}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -858,8 +961,14 @@ function Icon({ label, large = false }) {
   return <span className={`app-icon ${large ? 'large' : ''}`} aria-hidden="true">{label}</span>;
 }
 
-function Field({ label, value, onChange, type = 'text', inputMode }) {
-  return <label className="field"><span>{label}</span><input type={type} inputMode={inputMode} value={value} onChange={(e) => onChange(e.target.value)} /></label>;
+function Field({ label, value, onChange, type = 'text', inputMode, placeholder = '', error = '' }) {
+  return (
+    <label className={`field ${error ? 'has-error' : ''}`}>
+      <span>{label}</span>
+      <input type={type} inputMode={inputMode} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+      {error && <small>{error}</small>}
+    </label>
+  );
 }
 
 function Summary({ order, total }) {
@@ -881,6 +990,15 @@ function Next({ onClick, disabled }) { return <button className="wide" onClick={
 function Progress({ step }) { return <div className="progress">{[1, 2, 3, 4].map((n) => <span key={n} className={step >= n ? 'active' : ''} />)}</div>; }
 
 function productById(id) { return products.find((product) => product.id === id) || products[0]; }
+function slotsForProduct(productId) { return productById(productId).minutes === 90 ? longSlots : shortSlots; }
+function firstSlotForProduct(productId) { return slotsForProduct(productId)[0] || ''; }
+function slotStart(slot) { return String(slot || '').split(' a ')[0].trim(); }
+function equivalentSlotForProduct(slotOrStart, productId) {
+  const start = slotStart(slotOrStart);
+  if (!start) return '';
+  return slotsForProduct(productId).find((slot) => slotStart(slot) === start) || '';
+}
+function formatSlot(slot) { return String(slot || '').replace(' a ', ' - '); }
 function photoPrice(id) { return photoPacks.find((pack) => pack.id === id)?.price || 0; }
 function photoLabel(id) { const pack = photoPacks.find((item) => item.id === id); return pack ? `${pack.label} S/${pack.price}` : 'No quiero fotos'; }
 function calcTotal(order) { return safeItems(order).reduce((sum, item) => sum + productById(item.product_id).price, 0) + photoPrice(order?.photoPack || order?.photo_pack); }
@@ -889,7 +1007,25 @@ function newDraft() { return { items: [blankItem()], sameSlot: true, photoPack: 
 function saveDraft(order) { localStorage.setItem('yakuexpress_draft', JSON.stringify(order)); }
 function readDraft() { try { return JSON.parse(localStorage.getItem('yakuexpress_draft')); } catch (error) { console.error('Invalid YakuExpress draft:', error); return null; } }
 function readSession() { try { return JSON.parse(localStorage.getItem('yakuexpress_staff')); } catch { return null; } }
-function validCustomer(order) { return order.customerName && order.documentNumber && order.email && order.phone && order.paymentMethod; }
+function validCustomer(order) {
+  const errors = customerValidation(order);
+  return !errors.customerName && !errors.documentNumber && !errors.phone && !errors.email && order.paymentMethod;
+}
+function customerValidation(order) {
+  const receiptType = order?.receiptType || 'boleta';
+  const name = String(order?.customerName || '').trim();
+  const documentNumber = String(order?.documentNumber || '').trim();
+  const email = String(order?.email || '').trim();
+  const phone = String(order?.phone || '').trim();
+  const errors = {};
+  if (!name) errors.customerName = receiptType === 'boleta' ? 'El nombre es obligatorio.' : 'La razon social es obligatoria.';
+  if (!documentNumber) errors.documentNumber = receiptType === 'boleta' ? 'El DNI es obligatorio.' : 'El RUC es obligatorio.';
+  if (receiptType === 'boleta' && documentNumber && documentNumber.length !== 8) errors.documentNumber = 'El DNI debe tener 8 digitos.';
+  if (receiptType === 'factura' && documentNumber && documentNumber.length !== 11) errors.documentNumber = 'El RUC debe tener 11 digitos.';
+  if (!phone) errors.phone = 'El telefono es obligatorio.';
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Revisa el formato del correo.';
+  return errors;
+}
 function formatDate(value) { return value ? new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '-'; }
 function formatTime(value) {
   if (!value) return '—';
