@@ -111,10 +111,19 @@ function ClientFlow({ navigate }) {
   const [error, setError] = useState('');
   const [dismissedUpsells, setDismissedUpsells] = useState({});
   const [scheduleNotice, setScheduleNotice] = useState('');
+  const [recoverCode, setRecoverCode] = useState('');
+  const [recovering, setRecovering] = useState(false);
+  const [recoverMessage, setRecoverMessage] = useState('');
 
   const items = safeItems(order);
   const total = useMemo(() => calcTotal(order), [order]);
   const customerErrors = customerValidation(order);
+  const completedSteps = {
+    entries: items.every((item) => item.product_id),
+    schedule: items.every((item) => item.slot),
+    photos: Boolean(order.photoPack),
+    details: validCustomer(order),
+  };
 
   useEffect(() => saveDraft(order), [order]);
 
@@ -185,6 +194,38 @@ function ClientFlow({ navigate }) {
     }
   };
 
+  const recoverOrder = async () => {
+    const code = normalizeOrderSearch(recoverCode);
+    if (!code) {
+      setRecoverMessage('Escribi tu codigo YAKU para recuperar el pedido.');
+      return;
+    }
+    setRecovering(true);
+    setRecoverMessage('');
+    try {
+      let result = await supabase.rpc('get_public_order_by_code', { p_code: code });
+      if (result.error && /get_public_order_by_code|schema cache|function/i.test(result.error.message || '')) {
+        result = await supabase.rpc('get_order_payload', { p_code: code });
+      }
+      if (result.error) throw result.error;
+      if (!result.data?.code) {
+        setRecoverMessage('No encontramos un pedido con ese código.');
+        return;
+      }
+      const recovered = normalizeRecoveredOrder(result.data);
+      setOrder(recovered);
+      saveDraft(recovered);
+      setStep(5);
+      setRecoverCode('');
+      setRecoverMessage(recovered.status === 'expired' ? 'Este pedido expiró. Podés crear uno nuevo.' : '');
+    } catch (err) {
+      console.error('YakuExpress section10 error:', err);
+      setRecoverMessage('No pudimos recuperar el pedido. Revisa el codigo e intenta nuevamente.');
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   if (step === 5) return <Confirmation order={order} setOrder={setOrder} setStep={setStep} navigate={navigate} />;
 
   return (
@@ -216,11 +257,35 @@ function ClientFlow({ navigate }) {
         </div>
       </section>
 
-      <Progress step={step} />
+      <RecoverOrderBox
+        code={recoverCode}
+        setCode={setRecoverCode}
+        recover={recoverOrder}
+        recovering={recovering}
+        message={recoverMessage}
+      />
+
+      <Progress step={step} completedSteps={completedSteps} />
+      <CompletionChecks completedSteps={completedSteps} />
 
       {step === 1 && (
         <section className="panel">
           <SectionTitle icon={<Icon label="1" />} title="Elegí tu experiencia" />
+          <div className="conversion-note">
+            <strong>La mayoría de visitantes elige Full Pass</strong>
+            <span>para aprovechar mejor el parque, disfrutar con menos apuro y llevarse un recuerdo incluido.</span>
+          </div>
+          <div className="value-compare">
+            <div>
+              <span>Standard</span>
+              <strong>45 min</strong>
+            </div>
+            <div className="featured">
+              <span>Full Pass</span>
+              <strong>90 min + 1 foto gratis + media incluida</strong>
+            </div>
+            <p>Por S/30 más duplicás tu tiempo y te llevás un recuerdo.</p>
+          </div>
           <div className="product-grid">
             {items.map((item, index) => (
               <EntryPicker
@@ -254,8 +319,8 @@ function ClientFlow({ navigate }) {
 
       {step === 2 && (
         <section className="panel">
-          <SectionTitle icon={<Icon label="2" />} title="Elegi tu horario de ingreso" />
-          <p className="soft">Selecciona el horario que mejor se acomode a tu experiencia.</p>
+          <SectionTitle icon={<Icon label="2" />} title="Elegí el mejor horario para disfrutar tu experiencia" />
+          <p className="soft">Reservamos tu momento de ingreso para que todo se sienta mas fluido al llegar.</p>
           {scheduleNotice && <p className="schedule-notice">{scheduleNotice}</p>}
           {items.length > 1 && (
             <label className="check-row schedule-toggle">
@@ -274,7 +339,7 @@ function ClientFlow({ navigate }) {
             </div>
           ) : (
             <>
-              <p className="soft compact-help">Tambien podes elegir horarios distintos para cada entrada.</p>
+              <p className="soft compact-help">Si tu grupo necesita moverse en tiempos distintos, podes ajustar cada entrada por separado.</p>
               {items.map((item, index) => (
                 <div className="mini-panel schedule-card" key={item.uid || `${item.product_id}-${index}`}>
                   <strong>Entrada {index + 1}: {productById(item.product_id).name}</strong>
@@ -297,6 +362,10 @@ function ClientFlow({ navigate }) {
               <span>Podes completar tu recuerdo agregando mas fotos de tu experiencia.</span>
             </div>
           )}
+          <div className="photo-complete-note">
+            <strong>Si querés quedarte con todo el día</strong>
+            <span>Muchas familias prefieren llevarse todas para no elegir después qué recuerdo dejar fuera.</span>
+          </div>
           <div className="option-grid">
             {photoPacks.map((pack) => (
               <button key={pack.id} className={`option-card ${order.photoPack === pack.id ? 'selected' : ''} ${pack.featured ? 'featured' : ''}`} onClick={() => setOrder({ ...order, photoPack: pack.id })}>
@@ -342,7 +411,7 @@ function ClientFlow({ navigate }) {
             </div>
           </div>
           <label className="field">
-            <span>Comentarios para caja</span>
+            <span>¿Querés decirnos algo para preparar mejor tu experiencia?</span>
             <textarea value={order.comments} placeholder="Ej: cumpleaños, grupo familiar, movilidad, detalle especial..." onChange={(e) => setOrder({ ...order, comments: e.target.value })} rows="3" />
             <small>Este campo es opcional.</small>
           </label>
@@ -356,10 +425,35 @@ function ClientFlow({ navigate }) {
           </div>
           <Summary order={order} total={total} />
           {error && <p className="error">{error}</p>}
-          <StepActions back={() => setStep(3)} next={submit} disabled={!validCustomer(order) || busy} label={busy ? 'Creando...' : 'Generar codigo y QR'} />
+          {busy && <PremiumLoading />}
+          <StepActions back={() => setStep(3)} next={submit} disabled={!validCustomer(order) || busy} label={busy ? <LoadingLabel /> : 'Generar codigo y QR'} />
         </section>
       )}
+      <MobileStickySummary order={order} total={total} step={step} />
     </Shell>
+  );
+}
+
+function RecoverOrderBox({ code, setCode, recover, recovering, message }) {
+  return (
+    <section className="recover-card" aria-label="Recuperar pedido">
+      <div>
+        <strong>¿Ya tenés un código?</strong>
+        <span>Si ya hiciste tu pedido, podés recuperar tu código QR acá.</span>
+      </div>
+      <div className="recover-form">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="YAKU-0001"
+          aria-label="Codigo de pedido"
+        />
+        <button onClick={recover} disabled={recovering}>
+          {recovering ? 'Recuperando...' : 'Recuperar pedido'}
+        </button>
+      </div>
+      {message && <p className="recover-message">{message}</p>}
+    </section>
   );
 }
 
@@ -389,6 +483,9 @@ function EntryPicker({ item, index, canRemove, setItem, remove }) {
           </button>
         ))}
       </div>
+      {item.product_id === 'full_pass' && (
+        <p className="choice-reinforcement">Excelente elección. Tenés más tiempo para disfrutar y 1 foto gratis incluida.</p>
+      )}
     </div>
   );
 }
@@ -399,14 +496,14 @@ function Upsell({ entryNumber, onUpgrade, onDismiss }) {
       <div className="upsell-badge">Recomendado</div>
       <div className="upsell-copy">
         <strong>Entrada {entryNumber}: Mejora tu experiencia</strong>
-        <p>Por solo S/30 mas, duplicas tu tiempo dentro del parque y te llevas una foto gratis.</p>
+        <p>Si querés vivir la experiencia completa, Full Pass te da el doble de tiempo por solo S/30 más.</p>
         <ul>
           <li>90 minutos en vez de 45</li>
           <li>1 foto gratis incluida</li>
           <li>media de regalo</li>
           <li>mas tiempo para disfrutar sin apuro</li>
         </ul>
-        <small>La mayoria elige Full Pass para aprovechar mejor el dia.</small>
+        <small>La mayoría de visitantes elige Full Pass para aprovechar mejor el parque.</small>
       </div>
       <div className="upsell-actions">
         <button onClick={onUpgrade}>Cambiar esta entrada a Full Pass</button>
@@ -441,10 +538,12 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
   const qrValue = `${location.origin}${withBasePath(`/caja?codigo=${order.code}`)}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(qrValue)}`;
   const [now, setNow] = useState(Date.now());
+  const [copyMessage, setCopyMessage] = useState('');
   const expiresAt = order.expires_at ? new Date(order.expires_at).getTime() : 0;
   const remainingMs = expiresAt ? Math.max(0, expiresAt - now) : null;
   const expired = expiresAt ? remainingMs <= 0 : false;
   const countdown = remainingMs === null ? 'Sin vencimiento registrado' : formatCountdown(remainingMs);
+  const status = order.status || (expired ? 'expired' : 'pending');
 
   useEffect(() => {
     if (!expiresAt || expired) return undefined;
@@ -458,8 +557,39 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
     setStep(1);
   };
 
+  const shareByWhatsApp = () => {
+    const message = [
+      '🌊 Tu pedido YakuExpress está listo',
+      '',
+      'Código:',
+      order.code,
+      '',
+      'Mostrá este código o QR en caja para agilizar tu ingreso a Yakupark.',
+      'Tu pedido vence en 1 hora.',
+      '',
+      '¡Nos vemos en Yakupark!',
+    ].join('\n');
+    const phone = whatsappPhone(order.phone);
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyCode = async () => {
+    setCopyMessage('');
+    try {
+      await navigator.clipboard.writeText(order.code);
+      setCopyMessage('Código copiado correctamente');
+    } catch (err) {
+      console.error('YakuExpress section10 error:', err);
+      setCopyMessage(`No se pudo copiar automaticamente. Codigo: ${order.code}`);
+    }
+  };
+
   return (
     <Shell>
+      <Progress step={5} completedSteps={{ entries: true, schedule: true, photos: true, details: true }} />
       <section className="done confirmation">
         {expired ? (
           <>
@@ -475,6 +605,7 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
                 <p className="success">Pedido generado correctamente</p>
                 <h1>Mostrá este QR en caja</h1>
                 <span>La persona de caja puede escanearlo o buscar el codigo YAKU manualmente.</span>
+                {status && <small className={`order-status ${status}`}>Estado: {statusLabels[status] || status}</small>}
               </div>
             </div>
 
@@ -484,6 +615,11 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
                 <div className="code">{order.code}</div>
                 <div className="qr"><img src={qrUrl} alt={`QR del pedido ${order.code}`} width="320" height="320" /></div>
                 <p className="qr-hint">Manten esta pantalla abierta, con el codigo visible y el brillo alto.</p>
+                <div className="share-actions">
+                  <button onClick={shareByWhatsApp}>📲 Enviarme código por WhatsApp</button>
+                  <button className="ghost" onClick={copyCode}>📋 Copiar código</button>
+                </div>
+                {copyMessage && <p className="copy-message">{copyMessage}</p>}
               </div>
 
               <div className="confirmation-side">
@@ -1020,6 +1156,8 @@ function Summary({ order, total }) {
       <strong>Resumen</strong>
       {Object.entries(grouped).map(([id, qty]) => <span key={id}>{qty} {productById(id).name} - S/{qty * productById(id).price}</span>)}
       <span>Fotos - S/{photoPrice(order.photoPack || order.photo_pack)}</span>
+      {orderHasFullPass(order) && <small className="summary-insight">Tu pedido incluye experiencia premium.</small>}
+      {orderHasFullPass(order) && orderHasAllPhotos(order) && <small className="summary-insight">También incluye el recuerdo completo del día.</small>}
       <b>TOTAL: S/{total}</b>
     </div>
   );
@@ -1029,7 +1167,78 @@ function StepActions({ back, next, disabled, label = 'Continuar' }) {
   return <div className="actions"><button className="ghost" onClick={back}>Atras</button><button onClick={next} disabled={disabled}>{label}</button></div>;
 }
 function Next({ onClick, disabled }) { return <button className="wide" onClick={onClick} disabled={disabled}>Continuar</button>; }
-function Progress({ step }) { return <div className="progress">{[1, 2, 3, 4].map((n) => <span key={n} className={step >= n ? 'active' : ''} />)}</div>; }
+function Progress({ step, completedSteps = {} }) {
+  const steps = [
+    ['entries', 'Entradas'],
+    ['schedule', 'Horarios'],
+    ['photos', 'Fotos'],
+    ['details', 'Datos'],
+    ['confirmation', 'Confirmacion'],
+  ];
+  return (
+    <nav className="progress stepper" aria-label="Progreso del pedido">
+      {steps.map(([id, label], index) => {
+        const number = index + 1;
+        const complete = id === 'confirmation' ? step === 5 : completedSteps[id];
+        return (
+          <div key={id} className={`stepper-item ${step === number ? 'active' : ''} ${complete ? 'complete' : ''}`}>
+            <span>{complete ? 'OK' : number}</span>
+            <small>{label}</small>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+function CompletionChecks({ completedSteps }) {
+  const checks = [
+    ['entries', 'Entradas seleccionadas'],
+    ['schedule', 'Horario confirmado'],
+    ['photos', 'Fotos elegidas'],
+    ['details', 'Datos completos'],
+  ];
+  return (
+    <div className="completion-strip" aria-label="Estado de avance">
+      {checks.map(([id, label], index) => (
+        <span key={id} className={completedSteps[id] ? 'complete' : ''}>
+          <b>{completedSteps[id] ? 'OK' : index + 1}</b>
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function PremiumLoading() {
+  return (
+    <div className="premium-loading" role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      <div>
+        <strong>Preparando tu experiencia YakuExpress...</strong>
+        <small>Estamos preparando tu codigo QR para agilizar tu ingreso.</small>
+      </div>
+    </div>
+  );
+}
+
+function LoadingLabel() {
+  return <span className="loading-label"><span className="spinner mini" aria-hidden="true" /> Preparando QR...</span>;
+}
+
+function MobileStickySummary({ order, total, step }) {
+  if (step >= 5) return null;
+  return (
+    <aside className="mobile-sticky-summary" aria-label="Resumen compacto">
+      <span>Entradas: <b>{safeItems(order).length}</b></span>
+      <span>Fotos: <b>S/{photoPrice(order.photoPack || order.photo_pack)}</b></span>
+      <span>Total: <b>S/{total}</b></span>
+      {(orderHasFullPass(order) || orderHasAllPhotos(order)) && (
+        <small>{orderHasAllPhotos(order) ? 'Recuerdo completo incluido' : 'Experiencia premium incluida'}</small>
+      )}
+    </aside>
+  );
+}
 
 function productById(id) { return products.find((product) => product.id === id) || products[0]; }
 function slotsForProduct(productId) { return productById(productId).minutes === 90 ? longSlots : shortSlots; }
@@ -1043,6 +1252,8 @@ function equivalentSlotForProduct(slotOrStart, productId) {
 function formatSlot(slot) { return String(slot || '').replace(' a ', ' - '); }
 function photoPrice(id) { return photoPacks.find((pack) => pack.id === id)?.price || 0; }
 function photoLabel(id) { const pack = photoPacks.find((item) => item.id === id); return pack ? `${pack.label} S/${pack.price}` : 'No quiero fotos'; }
+function orderHasFullPass(order) { return safeItems(order).some((item) => item.product_id === 'full_pass'); }
+function orderHasAllPhotos(order) { return (order?.photoPack || order?.photo_pack) === 'todas'; }
 function calcTotal(order) { return safeItems(order).reduce((sum, item) => sum + productById(item.product_id).price, 0) + photoPrice(order?.photoPack || order?.photo_pack); }
 function blankItem() { return { uid: crypto.randomUUID(), product_id: 'full_pass', slot: '' }; }
 function newDraft() { return { items: [blankItem()], sameSlot: true, photoPack: '3_5_fotos', receiptType: 'boleta', customerName: '', documentNumber: '', email: '', phone: '', comments: '', paymentMethod: 'Yape' }; }
@@ -1102,6 +1313,28 @@ function normalizeOrderSearch(value) {
   if (!raw) return '';
   if (/^\d+$/.test(raw)) return `YAKU-${raw.padStart(4, '0')}`;
   return raw;
+}
+function normalizeRecoveredOrder(order) {
+  if (!order || typeof order !== 'object') return newDraft();
+  return {
+    ...order,
+    receiptType: order.receiptType || order.receipt_type || 'boleta',
+    customerName: order.customerName || order.customer_name || '',
+    documentNumber: order.documentNumber || order.document_number || '',
+    photoPack: order.photoPack || order.photo_pack || 'none',
+    paymentMethod: order.paymentMethod || order.payment_method || 'Yape',
+    editToken: order.editToken || order.edit_token || '',
+    email: order.email || '',
+    phone: order.phone || '',
+    comments: order.comments || '',
+    items: safeItems(order).map((item) => ({ ...item, uid: item.uid || crypto.randomUUID() })),
+  };
+}
+function whatsappPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 9) return `51${digits}`;
+  return digits;
 }
 function basePath() { return import.meta.env.BASE_URL.replace(/\/$/, ''); }
 function stripBasePath(pathname) {
