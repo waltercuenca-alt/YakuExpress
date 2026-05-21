@@ -31,7 +31,14 @@ as $$
   where public.is_staff_session(p_session_token)
     and o.created_at >= date_trunc('day', now())
     and o.created_at < date_trunc('day', now()) + interval '1 day'
-    and (nullif(trim(coalesce(p_status, '')), '') is null or o.status::text = trim(p_status))
+    and (
+      nullif(trim(coalesce(p_status, '')), '') is null
+      or o.status::text = trim(p_status)
+      or (trim(p_status) = 'pedido_creado' and o.status::text = 'pending')
+      or (trim(p_status) = 'pago_procesado' and o.status::text = 'paid')
+      or (trim(p_status) = 'finalizado' and o.status::text = 'in_fazzure')
+      or (trim(p_status) = 'problema_demora' and o.status::text = 'cancelled')
+    )
   order by o.created_at desc;
 $$;
 

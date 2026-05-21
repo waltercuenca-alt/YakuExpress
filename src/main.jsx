@@ -20,11 +20,48 @@ const photoPacks = [
 ];
 const payMethods = ['Efectivo', 'Yape', 'Plin', 'Tarjeta', 'Transferencia', 'Otro'];
 const statusLabels = {
-  pending: 'Pendiente',
-  paid: 'Pagado',
-  in_fazzure: 'En Fazzure',
-  cancelled: 'Cancelado',
+  pedido_creado: 'Pedido creado',
+  cliente_en_caja: 'Cliente en caja',
+  pago_procesado: 'Pago procesado',
+  finalizado: 'Finalizado',
+  problema_demora: 'Problema / demora',
+  pending: 'Pedido creado',
+  paid: 'Pago procesado',
+  in_fazzure: 'Finalizado',
+  cancelled: 'Problema / demora',
   expired: 'Expirado',
+};
+const orderStatusMeta = {
+  pedido_creado: { label: 'Pedido creado', tone: 'created' },
+  cliente_en_caja: { label: 'Cliente en caja', tone: 'cashier' },
+  pago_procesado: { label: 'Pago procesado', tone: 'paid' },
+  finalizado: { label: 'Finalizado', tone: 'finalized' },
+  problema_demora: { label: 'Problema / demora', tone: 'delayed' },
+  expired: { label: 'Expirado', tone: 'expired' },
+  pending: { label: 'Pedido creado', tone: 'created' },
+  paid: { label: 'Pago procesado', tone: 'paid' },
+  in_fazzure: { label: 'Finalizado', tone: 'finalized' },
+  cancelled: { label: 'Problema / demora', tone: 'delayed' },
+};
+const cashierStatusFilters = [
+  ['', 'Todos'],
+  ['pedido_creado', 'Pedido creado'],
+  ['cliente_en_caja', 'Cliente en caja'],
+  ['pago_procesado', 'Pago procesado'],
+  ['finalizado', 'Finalizado'],
+  ['problema_demora', 'Problema / demora'],
+];
+const cashierStatusActions = [
+  ['cliente_en_caja', 'Marcar cliente en caja'],
+  ['pago_procesado', 'Marcar pago procesado'],
+  ['finalizado', 'Finalizar pedido'],
+  ['problema_demora', 'Marcar problema'],
+];
+const legacyStatusFallbacks = {
+  pedido_creado: 'pending',
+  pago_procesado: 'paid',
+  finalizado: 'in_fazzure',
+  problema_demora: 'cancelled',
 };
 
 function App() {
@@ -692,6 +729,7 @@ function Caja({ session, setSession }) {
   const [orders, setOrders] = useState([]);
   const [todayOrders, setTodayOrders] = useState([]);
   const [todayStatus, setTodayStatus] = useState('');
+  const [now, setNow] = useState(Date.now());
   const [cashierSummary, setCashierSummary] = useState(null);
   const [query, setQuery] = useState(new URLSearchParams(location.search).get('codigo') || '');
   const [activeOrder, setActiveOrder] = useState(null);
@@ -713,6 +751,11 @@ function Caja({ session, setSession }) {
       ...extra,
     });
   };
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const loadSummary = async () => {
     setSummaryLoading(true);
@@ -813,11 +856,19 @@ function Caja({ session, setSession }) {
   };
 
   const updateStatus = async (code, status) => {
-    const { data, error } = await supabase.rpc('staff_update_order_status', {
+    let { data, error } = await supabase.rpc('staff_update_order_status', {
       p_session_token: session.token,
       p_code: code,
       p_status: status,
     });
+    if (error && legacyStatusFallbacks[status] && /enum|order_status|invalid input value/i.test(`${error.message || ''} ${error.details || ''}`)) {
+      ({ data, error } = await supabase.rpc('staff_update_order_status', {
+        p_session_token: session.token,
+        p_code: code,
+        p_status: legacyStatusFallbacks[status],
+      }));
+      if (data?.code) data = { ...data, status };
+    }
     if (error) throw error;
     await syncOrderToSheets(code);
     await load();
@@ -836,11 +887,12 @@ function Caja({ session, setSession }) {
         {summaryMessage && <p className={summaryMessage.startsWith('Error') ? 'error' : 'soft'}>{summaryMessage}</p>}
         <div className="kpi-grid">
           {[
-            ['Pedidos', cashierSummary?.total_orders ?? 0, 'neutral'],
-            ['Pendientes', cashierSummary?.pending_orders ?? 0, 'pending'],
-            ['Pagados', cashierSummary?.paid_orders ?? 0, 'paid'],
-            ['En Fazzure', cashierSummary?.in_fazzure_orders ?? 0, 'in_fazzure'],
-            ['Cancelados', cashierSummary?.cancelled_orders ?? 0, 'cancelled'],
+            ['Pedidos', cashierSummary?.total_orders ?? todayOrders.length ?? 0, 'neutral'],
+            ['Creados', cashierSummary?.pedido_creado_orders ?? cashierSummary?.pending_orders ?? countOrdersByStatus(todayOrders, 'pedido_creado'), 'pedido_creado'],
+            ['En caja', cashierSummary?.cliente_en_caja_orders ?? countOrdersByStatus(todayOrders, 'cliente_en_caja'), 'cliente_en_caja'],
+            ['Pagos', cashierSummary?.pago_procesado_orders ?? cashierSummary?.paid_orders ?? countOrdersByStatus(todayOrders, 'pago_procesado'), 'pago_procesado'],
+            ['Finalizados', cashierSummary?.finalizado_orders ?? cashierSummary?.in_fazzure_orders ?? countOrdersByStatus(todayOrders, 'finalizado'), 'finalizado'],
+            ['Problemas', cashierSummary?.problema_demora_orders ?? cashierSummary?.cancelled_orders ?? countOrdersByStatus(todayOrders, 'problema_demora'), 'problema_demora'],
             ['Total', `S/${cashierSummary?.total_sales ?? 0}`, 'paid'],
             ['Ticket promedio', `S/${cashierSummary?.avg_ticket ?? 0}`, 'neutral'],
           ].map(([label, value, tone]) => (
@@ -860,13 +912,7 @@ function Caja({ session, setSession }) {
         </div>
         <small className="soft">Actualizacion automatica cada 10s</small>
         <div className="chips">
-          {[
-            ['', 'Todos'],
-            ['pending', 'Pendientes'],
-            ['paid', 'Pagados'],
-            ['in_fazzure', 'En Fazzure'],
-            ['cancelled', 'Cancelados'],
-          ].map(([status, label]) => (
+          {cashierStatusFilters.map(([status, label]) => (
             <button
               key={label}
               className={todayStatus === status ? 'chip active' : 'chip'}
@@ -880,13 +926,15 @@ function Caja({ session, setSession }) {
         {todayMessage && <p className={todayMessage.startsWith('Error') ? 'error' : 'soft'}>{todayMessage}</p>}
         <div className="today-list">
           {todayOrders.map((order) => (
-            <button key={order.code} className="today-row" onClick={() => selectOrder(order)}>
-              <strong>{order.code}</strong>
-              <span>{order.status}</span>
+            <button key={order.code} className={`today-row ${statusToneClass(order.status)}`} onClick={() => selectOrder(order)}>
+              <div className="today-code">
+                <strong>{order.code}</strong>
+                <OrderStatusBadge status={order.status} />
+              </div>
               <span>{order.customer_name || '-'}</span>
               <span>{order.payment_method || '-'}</span>
               <b>S/{order.total || 0}</b>
-              <small>{formatTime(order.created_at)}</small>
+              <OrderTimeMeta order={order} now={now} />
             </button>
           ))}
         </div>
@@ -903,7 +951,10 @@ function Caja({ session, setSession }) {
           {orders.map((order) => (
             <article key={order.code} className="order-row">
               <div>
-                <strong>{order.code}</strong>
+                <div className="order-title-line">
+                  <strong>{order.code}</strong>
+                  <OrderStatusBadge status={order.status} />
+                </div>
                 <span>{order.customer_name} · {order.document_number}</span>
                 <small>{order.phone} · vence {formatDate(order.expires_at)}</small>
               </div>
@@ -928,6 +979,7 @@ function Caja({ session, setSession }) {
 }
 
 function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdated }) {
+  const [now, setNow] = useState(Date.now());
   const [form, setForm] = useState({
     customer_name: order.customer_name || '',
     document_number: order.document_number || '',
@@ -940,6 +992,11 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
   const [actionError, setActionError] = useState('');
   const [saving, setSaving] = useState(false);
   const [chargingMethod, setChargingMethod] = useState('');
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const runAction = async (action) => {
     setSaving(true);
@@ -1004,7 +1061,13 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
     <div className="modal-backdrop">
       <div className="modal">
         <button className="icon-button close" onClick={close}>x</button>
-        <h2>{order.code}</h2>
+        <div className="modal-order-head">
+          <div>
+            <h2>{order.code}</h2>
+            <OrderTimeMeta order={order} now={now} />
+          </div>
+          <OrderStatusBadge status={order.status} />
+        </div>
         <div className="form-grid">
           <Field label="Cliente" value={form.customer_name} onChange={(v) => setForm({ ...form, customer_name: v })} />
           <Field label="DNI/RUC" value={form.document_number} onChange={(v) => setForm({ ...form, document_number: v.replace(/\D/g, '') })} inputMode="numeric" />
@@ -1042,12 +1105,7 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
         </div>
         <button className="wide" onClick={() => runAction(save)} disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
         <div className="status-grid">
-          {[
-            ['pending', 'Pendiente'],
-            ['paid', 'Pagado'],
-            ['in_fazzure', 'En Fazzure'],
-            ['cancelled', 'Cancelado'],
-          ].map(([status, label]) => (
+          {cashierStatusActions.map(([status, label]) => (
             <button key={status} className={`status ${status}`} disabled={saving} onClick={() => runAction(() => updateStatus(order.code, status))}>
               {label}
             </button>
@@ -1146,6 +1204,20 @@ function Field({ label, value, onChange, type = 'text', inputMode, placeholder =
       <input type={type} inputMode={inputMode} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
       {error && <small>{error}</small>}
     </label>
+  );
+}
+
+function OrderStatusBadge({ status }) {
+  const meta = statusMeta(status);
+  return <span className={`order-state-badge ${meta.tone}`}>{meta.label}</span>;
+}
+
+function OrderTimeMeta({ order, now }) {
+  return (
+    <small className="order-time-meta">
+      <span>Creado {formatTime(order.created_at)}</span>
+      <b>Activo {formatActiveDuration(order.created_at, now)}</b>
+    </small>
   );
 }
 
@@ -1254,6 +1326,21 @@ function photoPrice(id) { return photoPacks.find((pack) => pack.id === id)?.pric
 function photoLabel(id) { const pack = photoPacks.find((item) => item.id === id); return pack ? `${pack.label} S/${pack.price}` : 'No quiero fotos'; }
 function orderHasFullPass(order) { return safeItems(order).some((item) => item.product_id === 'full_pass'); }
 function orderHasAllPhotos(order) { return (order?.photoPack || order?.photo_pack) === 'todas'; }
+function normalizeOperationalStatus(status) {
+  if (status === 'pending') return 'pedido_creado';
+  if (status === 'paid') return 'pago_procesado';
+  if (status === 'in_fazzure') return 'finalizado';
+  if (status === 'cancelled') return 'problema_demora';
+  return status || 'pedido_creado';
+}
+function statusMeta(status) {
+  const normalized = normalizeOperationalStatus(status);
+  return orderStatusMeta[normalized] || { label: statusLabels[status] || status || 'Pedido creado', tone: 'created' };
+}
+function statusToneClass(status) { return `state-${statusMeta(status).tone}`; }
+function countOrdersByStatus(orders, status) {
+  return orders.filter((order) => normalizeOperationalStatus(order.status) === status).length;
+}
 function calcTotal(order) { return safeItems(order).reduce((sum, item) => sum + productById(item.product_id).price, 0) + photoPrice(order?.photoPack || order?.photo_pack); }
 function blankItem() { return { uid: crypto.randomUUID(), product_id: 'full_pass', slot: '' }; }
 function newDraft() { return { items: [blankItem()], sameSlot: true, photoPack: '3_5_fotos', receiptType: 'boleta', customerName: '', documentNumber: '', email: '', phone: '', comments: '', paymentMethod: 'Yape' }; }
@@ -1288,6 +1375,16 @@ function formatCountdown(ms) {
   const seconds = totalSeconds % 60;
   const pad = (value) => String(value).padStart(2, '0');
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+}
+function formatActiveDuration(value, now = Date.now()) {
+  if (!value) return '0 min';
+  const created = new Date(value).getTime();
+  if (Number.isNaN(created)) return '0 min';
+  const totalMinutes = Math.max(0, Math.floor((now - created) / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes} min`;
+  return `${hours} h ${minutes} min`;
 }
 function formatTime(value) {
   if (!value) return '—';

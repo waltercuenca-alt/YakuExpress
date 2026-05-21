@@ -34,12 +34,17 @@ as $$
   )
   select jsonb_build_object(
     'total_orders', count(*),
-    'pending_orders', count(*) filter (where status = 'pending'),
-    'paid_orders', count(*) filter (where status = 'paid'),
-    'in_fazzure_orders', count(*) filter (where status = 'in_fazzure'),
-    'cancelled_orders', count(*) filter (where status = 'cancelled'),
-    'total_sales', coalesce(sum(total) filter (where status in ('paid', 'in_fazzure')), 0),
-    'avg_ticket', coalesce(round(avg(total) filter (where status in ('paid', 'in_fazzure')), 2), 0)
+    'pedido_creado_orders', count(*) filter (where status::text in ('pedido_creado', 'pending')),
+    'cliente_en_caja_orders', count(*) filter (where status::text = 'cliente_en_caja'),
+    'pago_procesado_orders', count(*) filter (where status::text in ('pago_procesado', 'paid')),
+    'finalizado_orders', count(*) filter (where status::text in ('finalizado', 'in_fazzure')),
+    'problema_demora_orders', count(*) filter (where status::text in ('problema_demora', 'cancelled')),
+    'pending_orders', count(*) filter (where status::text in ('pedido_creado', 'pending')),
+    'paid_orders', count(*) filter (where status::text in ('pago_procesado', 'paid')),
+    'in_fazzure_orders', count(*) filter (where status::text in ('finalizado', 'in_fazzure')),
+    'cancelled_orders', count(*) filter (where status::text in ('problema_demora', 'cancelled')),
+    'total_sales', coalesce(sum(total) filter (where status::text in ('pago_procesado', 'paid', 'finalizado', 'in_fazzure')), 0),
+    'avg_ticket', coalesce(round(avg(total) filter (where status::text in ('pago_procesado', 'paid', 'finalizado', 'in_fazzure')), 2), 0)
   )
   from today_orders;
 $$;
@@ -105,7 +110,7 @@ begin
   update public.orders
   set
     payment_method = trim(p_payment_method),
-    status = 'paid',
+    status = 'pago_procesado',
     updated_at = now()
   where upper(code) = v_code;
 

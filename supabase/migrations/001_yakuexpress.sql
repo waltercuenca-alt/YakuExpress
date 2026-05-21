@@ -2,7 +2,7 @@ create extension if not exists pgcrypto;
 
 do $$
 begin
-  create type order_status as enum ('pending', 'paid', 'in_fazzure', 'cancelled', 'expired');
+  create type order_status as enum ('pedido_creado', 'cliente_en_caja', 'pago_procesado', 'finalizado', 'problema_demora', 'pending', 'paid', 'in_fazzure', 'cancelled', 'expired');
 exception when duplicate_object then null;
 end $$;
 
@@ -25,7 +25,7 @@ create table if not exists public.orders (
   payment_method text not null,
   photo_pack text not null default 'none',
   total numeric(10,2) not null default 0,
-  status order_status not null default 'pending',
+  status order_status not null default 'pedido_creado',
   expires_at timestamptz not null default now() + interval '1 hour',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -268,7 +268,7 @@ begin
   if v_order.id is null then
     raise exception 'Pedido no encontrado';
   end if;
-  if v_order.status <> 'pending' then
+  if v_order.status::text not in ('pending', 'pedido_creado') then
     raise exception 'Solo se puede editar antes del pago';
   end if;
   if v_order.expires_at < now() then
@@ -333,7 +333,7 @@ as $$
     'payment_method', o.payment_method,
     'photo_pack', o.photo_pack,
     'total', o.total,
-    'status', case when o.status = 'pending' and o.expires_at < now() then 'expired' else o.status::text end,
+    'status', case when o.status::text in ('pending', 'pedido_creado') and o.expires_at < now() then 'expired' else o.status::text end,
     'expires_at', o.expires_at,
     'created_at', o.created_at,
     'items', coalesce(jsonb_agg(jsonb_build_object(

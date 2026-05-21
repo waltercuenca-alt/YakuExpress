@@ -38,7 +38,18 @@ begin
     raise exception 'Sesion no autorizada';
   end if;
 
-  v_status := p_status::public.order_status;
+  v_status := case lower(trim(p_status))
+    when 'pedido_creado' then 'pedido_creado'::public.order_status
+    when 'pending' then 'pedido_creado'::public.order_status
+    when 'cliente_en_caja' then 'cliente_en_caja'::public.order_status
+    when 'pago_procesado' then 'pago_procesado'::public.order_status
+    when 'paid' then 'pago_procesado'::public.order_status
+    when 'finalizado' then 'finalizado'::public.order_status
+    when 'in_fazzure' then 'finalizado'::public.order_status
+    when 'problema_demora' then 'problema_demora'::public.order_status
+    when 'cancelled' then 'problema_demora'::public.order_status
+    else p_status::public.order_status
+  end;
 
   update public.orders
   set status = v_status
