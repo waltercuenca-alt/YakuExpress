@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { supabase, syncOrderToSheets } from './supabase.js';
 import './styles.css';
@@ -62,6 +62,13 @@ const legacyStatusFallbacks = {
   pago_procesado: 'paid',
   finalizado: 'in_fazzure',
   problema_demora: 'cancelled',
+};
+const soundEventByStatus = {
+  pedido_creado: 'new_order',
+  cliente_en_caja: 'customer_at_cashier',
+  pago_procesado: 'payment_processed',
+  finalizado: 'finalized',
+  problema_demora: 'problem',
 };
 
 function App() {
@@ -739,6 +746,14 @@ function Caja({ session, setSession }) {
   const [searchMessage, setSearchMessage] = useState('');
   const [todayMessage, setTodayMessage] = useState('');
   const [summaryMessage, setSummaryMessage] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const audioContextRef = useRef(null);
+  const soundEnabledRef = useRef(soundEnabled);
+  const audioUnlockedRef = useRef(audioUnlocked);
+  const knownOrderStatusesRef = useRef(new Map());
+  const playedSoundEventsRef = useRef(new Set());
+  const didPrimeOrderStatusRef = useRef(false);
 
   const logCajaProError = (scope, error, extra = {}) => {
     console.error('YakuExpress fase2 caja pro error:', {
@@ -756,6 +771,63 @@ function Caja({ session, setSession }) {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('yaku_cashier_sound_enabled', soundEnabled ? 'true' : 'false');
+    soundEnabledRef.current = soundEnabled;
+    console.log('Sound enabled', soundEnabled);
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    audioUnlockedRef.current = audioUnlocked;
+  }, [audioUnlocked]);
+
+  const unlockCashierAudio = async () => {
+    try {
+      await ensureCashierAudio(audioContextRef);
+      audioUnlockedRef.current = true;
+      setAudioUnlocked(true);
+      return true;
+    } catch (error) {
+      console.warn('YakuExpress cashier audio unavailable:', error);
+      setAudioUnlocked(false);
+      return false;
+    }
+  };
+
+  const playOrderSoundOnce = (order, eventType) => {
+    const orderKey = orderIdentifier(order);
+    if (!orderKey || !eventType || !soundEnabledRef.current || !audioUnlockedRef.current) return;
+    const eventKey = `${orderKey}:${eventType}`;
+    if (playedSoundEventsRef.current.has(eventKey)) return;
+    playedSoundEventsRef.current.add(eventKey);
+    if (eventType === 'new_order') console.log('Playing new order sound', orderKey);
+    playCashierSound(eventType, audioContextRef);
+  };
+
+  const primeAndPlayOrderEvents = (nextOrders) => {
+    const previousStatuses = knownOrderStatusesRef.current;
+    const nextStatuses = new Map();
+    nextOrders.forEach((order) => {
+      const orderKey = orderIdentifier(order);
+      if (!orderKey) return;
+      const status = normalizeOperationalStatus(order.status);
+      nextStatuses.set(orderKey, status);
+      if (!didPrimeOrderStatusRef.current) return;
+      const previousStatus = previousStatuses.get(orderKey);
+      if (!previousStatus && status === 'pedido_creado') {
+        console.log('New order detected', { orderKey, code: order.code, id: order.id });
+        playOrderSoundOnce(order, 'new_order');
+        return;
+      }
+      if (previousStatus && previousStatus !== status) {
+        playOrderSoundOnce(order, soundEventByStatus[status]);
+      }
+    });
+    knownOrderStatusesRef.current = nextStatuses;
+    if (!didPrimeOrderStatusRef.current) console.log('Initial orders loaded', nextStatuses.size);
+    didPrimeOrderStatusRef.current = true;
+  };
 
   const loadSummary = async () => {
     setSummaryLoading(true);
@@ -786,6 +858,7 @@ function Caja({ session, setSession }) {
       });
       if (error) throw error;
       const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
+      primeAndPlayOrderEvents(nextOrders);
       setTodayOrders(nextOrders);
       setTodayMessage(nextOrders.length ? '' : 'No hay pedidos registrados hoy.');
     } catch (error) {
@@ -870,6 +943,7 @@ function Caja({ session, setSession }) {
       if (data?.code) data = { ...data, status };
     }
     if (error) throw error;
+    playOrderSoundOnce({ code }, soundEventByStatus[normalizeOperationalStatus(data?.status || status)]);
     await syncOrderToSheets(code);
     await load();
     await refreshCaja();
@@ -906,9 +980,28 @@ function Caja({ session, setSession }) {
       <section className="panel staff">
         <div className="staff-head">
           <h2>Pedidos de hoy</h2>
-          <button className="ghost" onClick={() => refreshCaja()} disabled={todayLoading || summaryLoading}>
-            {todayLoading ? 'Actualizando...' : 'Actualizar pedidos de hoy'}
-          </button>
+          <div className="cashier-tools">
+            <div className={`sound-control ${soundEnabled && audioUnlocked ? 'active' : ''}`}>
+              <button
+                className="ghost"
+                onClick={async () => {
+                  if (soundEnabled && audioUnlocked) {
+                    setSoundEnabled(false);
+                    return;
+                  }
+                  setSoundEnabled(true);
+                  const unlocked = await unlockCashierAudio();
+                  if (unlocked) playCashierSound('enabled', audioContextRef);
+                }}
+              >
+                {soundEnabled && audioUnlocked ? 'Desactivar sonidos' : 'Activar sonidos de caja'}
+              </button>
+              <span>{soundEnabled && audioUnlocked ? 'Sonido activado' : 'Sonido desactivado'}</span>
+            </div>
+            <button className="ghost" onClick={() => refreshCaja()} disabled={todayLoading || summaryLoading}>
+              {todayLoading ? 'Actualizando...' : 'Actualizar pedidos de hoy'}
+            </button>
+          </div>
         </div>
         <small className="soft">Actualizacion automatica cada 10s</small>
         <div className="chips">
@@ -1340,6 +1433,46 @@ function statusMeta(status) {
 function statusToneClass(status) { return `state-${statusMeta(status).tone}`; }
 function countOrdersByStatus(orders, status) {
   return orders.filter((order) => normalizeOperationalStatus(order.status) === status).length;
+}
+function orderIdentifier(order) {
+  if (!order || typeof order !== 'object') return '';
+  return String(order.code || order.id || '').trim();
+}
+async function ensureCashierAudio(audioContextRef) {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) throw new Error('Web Audio API no disponible');
+  if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+  if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
+  return audioContextRef.current;
+}
+function playTone(audio, start, frequency, duration, type = 'sine', volume = 0.16) {
+  const oscillator = audio.createOscillator();
+  const gain = audio.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(audio.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.03);
+}
+function playCashierSound(eventType, audioContextRef) {
+  const audio = audioContextRef.current;
+  if (!audio || audio.state !== 'running') return;
+  const now = audio.currentTime;
+  const patterns = {
+    enabled: [[0, 660, 0.1, 'sine', 0.1], [0.12, 880, 0.12, 'sine', 0.1]],
+    new_order: [[0, 784, 0.16, 'triangle', 0.18], [0.18, 988, 0.18, 'triangle', 0.18], [0.39, 1175, 0.2, 'triangle', 0.16]],
+    customer_at_cashier: [[0, 587, 0.13, 'sine', 0.14], [0.16, 740, 0.15, 'sine', 0.14]],
+    payment_processed: [[0, 523, 0.12, 'sine', 0.12], [0.14, 659, 0.14, 'sine', 0.12], [0.3, 784, 0.16, 'sine', 0.1]],
+    problem: [[0, 220, 0.18, 'sawtooth', 0.16], [0.22, 196, 0.18, 'sawtooth', 0.16], [0.44, 220, 0.22, 'sawtooth', 0.18]],
+    finalized: [[0, 880, 0.09, 'sine', 0.09], [0.11, 1047, 0.11, 'sine', 0.08]],
+  };
+  (patterns[eventType] || patterns.new_order).forEach(([offset, frequency, duration, type, volume]) => {
+    playTone(audio, now + offset, frequency, duration, type, volume);
+  });
 }
 function calcTotal(order) { return safeItems(order).reduce((sum, item) => sum + productById(item.product_id).price, 0) + photoPrice(order?.photoPack || order?.photo_pack); }
 function blankItem() { return { uid: crypto.randomUUID(), product_id: 'full_pass', slot: '' }; }

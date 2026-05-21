@@ -207,6 +207,12 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .order-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid #cfeff7; border-radius: 8px; background: white; }
 .order-row div { display: grid; gap: 4px; }
 .order-row span, .order-row small { color: #4b6d7b; }
+.cashier-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.sound-control { min-height: 50px; display: flex; align-items: center; gap: 8px; padding: 7px; border: 2px solid #cfeff7; border-radius: 8px; background: white; }
+.sound-control.active { border-color: #baf0d3; background: #e8fff3; }
+.sound-control button { min-height: 40px; padding: 9px 11px; white-space: nowrap; }
+.sound-control span { color: #4b6d7b; font-size: .82rem; font-weight: 1000; white-space: nowrap; }
+.sound-control.active span { color: #087a43; }
 .order-title-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .order-state-badge { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 28px; padding: 6px 10px; border-radius: 999px; color: white; background: #0079a8; font-size: .76rem; line-height: 1; font-weight: 1000; white-space: nowrap; }
 .order-state-badge.created { background: #1f8cc7; }
@@ -292,6 +298,9 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .today-code { grid-template-columns: 1fr auto; }
   .order-time-meta { grid-template-columns: 1fr auto; }
   .modal-order-head { display: grid; gap: 8px; padding-right: 42px; }
+  .cashier-tools { width: 100%; justify-content: stretch; }
+  .cashier-tools > * { flex: 1; }
+  .sound-control { flex-wrap: wrap; justify-content: center; }
   .actions { align-items: stretch; }
   .actions button { flex: 1; }
   .mobile-sticky-summary { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 8; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px; border-radius: 8px; background: rgba(7, 59, 88, .96); color: white; box-shadow: 0 14px 34px rgba(2, 24, 38, .22); backdrop-filter: blur(8px); }
