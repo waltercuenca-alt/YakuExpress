@@ -336,6 +336,7 @@ as $$
     'status', case when o.status::text in ('pending', 'pedido_creado') and o.expires_at < now() then 'expired' else o.status::text end,
     'expires_at', o.expires_at,
     'created_at', o.created_at,
+    'updated_at', o.updated_at,
     'items', coalesce(jsonb_agg(jsonb_build_object(
       'product_id', i.product_id,
       'product_name', i.product_name,
@@ -375,7 +376,7 @@ begin
     raise exception 'Sesion no autorizada';
   end if;
 
-  update public.orders set status = p_status::order_status where code = p_code;
+  update public.orders set status = p_status::order_status, updated_at = now() where code = p_code;
   return public.get_order_payload(p_code);
 end;
 $$;

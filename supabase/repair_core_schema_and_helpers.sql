@@ -134,6 +134,7 @@ as $$
     'status', case when o.status::text in ('pending', 'pedido_creado') and o.expires_at < now() then 'expired' else o.status::text end,
     'expires_at', o.expires_at,
     'created_at', o.created_at,
+    'updated_at', o.updated_at,
     'items', coalesce(jsonb_agg(jsonb_build_object(
       'product_id', i.product_id,
       'product_name', i.product_name,

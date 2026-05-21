@@ -52,7 +52,9 @@ begin
   end;
 
   update public.orders
-  set status = v_status
+  set
+    status = v_status,
+    updated_at = now()
   where upper(code) = v_code;
 
   if not found then

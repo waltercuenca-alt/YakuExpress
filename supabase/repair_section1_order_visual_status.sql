@@ -65,7 +65,9 @@ begin
   v_status := public.normalize_staff_order_status(p_status);
 
   update public.orders
-  set status = v_status
+  set
+    status = v_status,
+    updated_at = now()
   where upper(code) = v_code;
 
   if not found then
@@ -186,6 +188,7 @@ as $$
     'status', case when o.status::text in ('pedido_creado', 'pending') and o.expires_at < now() then 'expired' else o.status::text end,
     'expires_at', o.expires_at,
     'created_at', o.created_at,
+    'updated_at', o.updated_at,
     'items', coalesce(jsonb_agg(jsonb_build_object(
       'product_id', i.product_id,
       'product_name', i.product_name,

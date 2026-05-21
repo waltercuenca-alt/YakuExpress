@@ -754,6 +754,7 @@ function Caja({ session, setSession }) {
   const knownOrderStatusesRef = useRef(new Map());
   const playedSoundEventsRef = useRef(new Set());
   const didPrimeOrderStatusRef = useRef(false);
+  const sortedTodayOrders = useMemo(() => sortOrdersByPriority(todayOrders, now), [todayOrders, now]);
 
   const logCajaProError = (scope, error, extra = {}) => {
     console.error('YakuExpress fase2 caja pro error:', {
@@ -1018,18 +1019,22 @@ function Caja({ session, setSession }) {
         </div>
         {todayMessage && <p className={todayMessage.startsWith('Error') ? 'error' : 'soft'}>{todayMessage}</p>}
         <div className="today-list">
-          {todayOrders.map((order) => (
-            <button key={order.code} className={`today-row ${statusToneClass(order.status)}`} onClick={() => selectOrder(order)}>
+          {sortedTodayOrders.map((order) => {
+            const priority = orderPriority(order, now);
+            return (
+            <button key={order.code} className={`today-row ${statusToneClass(order.status)} priority-${priority.tone}`} onClick={() => selectOrder(order)}>
               <div className="today-code">
                 <strong>{order.code}</strong>
                 <OrderStatusBadge status={order.status} />
+                <OrderPriorityBadge priority={priority} />
               </div>
               <span>{order.customer_name || '-'}</span>
               <span>{order.payment_method || '-'}</span>
               <b>S/{order.total || 0}</b>
-              <OrderTimeMeta order={order} now={now} />
+              <OrderTimeMeta order={order} now={now} priority={priority} />
             </button>
-          ))}
+            );
+          })}
         </div>
       </section>
       <section className="panel staff">
@@ -1047,6 +1052,7 @@ function Caja({ session, setSession }) {
                 <div className="order-title-line">
                   <strong>{order.code}</strong>
                   <OrderStatusBadge status={order.status} />
+                  <OrderPriorityBadge priority={orderPriority(order, now)} />
                 </div>
                 <span>{order.customer_name} · {order.document_number}</span>
                 <small>{order.phone} · vence {formatDate(order.expires_at)}</small>
@@ -1157,9 +1163,12 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
         <div className="modal-order-head">
           <div>
             <h2>{order.code}</h2>
-            <OrderTimeMeta order={order} now={now} />
+            <OrderTimeMeta order={order} now={now} priority={orderPriority(order, now)} />
           </div>
-          <OrderStatusBadge status={order.status} />
+          <div className="modal-badges">
+            <OrderStatusBadge status={order.status} />
+            <OrderPriorityBadge priority={orderPriority(order, now)} />
+          </div>
         </div>
         <div className="form-grid">
           <Field label="Cliente" value={form.customer_name} onChange={(v) => setForm({ ...form, customer_name: v })} />
@@ -1305,11 +1314,15 @@ function OrderStatusBadge({ status }) {
   return <span className={`order-state-badge ${meta.tone}`}>{meta.label}</span>;
 }
 
-function OrderTimeMeta({ order, now }) {
+function OrderPriorityBadge({ priority }) {
+  return <span className={`priority-badge ${priority.tone}`}>{priority.label}</span>;
+}
+
+function OrderTimeMeta({ order, now, priority = orderPriority(order, now) }) {
   return (
     <small className="order-time-meta">
       <span>Creado {formatTime(order.created_at)}</span>
-      <b>Activo {formatActiveDuration(order.created_at, now)}</b>
+      <b>{priority.waitLabel}: {formatActiveDuration(priority.waitStartedAt, now)}</b>
     </small>
   );
 }
@@ -1433,6 +1446,31 @@ function statusMeta(status) {
 function statusToneClass(status) { return `state-${statusMeta(status).tone}`; }
 function countOrdersByStatus(orders, status) {
   return orders.filter((order) => normalizeOperationalStatus(order.status) === status).length;
+}
+function orderPriority(order, now = Date.now()) {
+  const status = normalizeOperationalStatus(order?.status);
+  const createdAt = timestampValue(order?.created_at) || now;
+  const waitStartedAt = timestampValue(order?.updated_at) || createdAt;
+  if (status === 'problema_demora') return { label: 'Critico', tone: 'critical', rank: 50, waitStartedAt, waitLabel: 'En problema' };
+  if (status === 'finalizado') return { label: 'Finalizado', tone: 'done', rank: 0, waitStartedAt, waitLabel: 'Cerrado' };
+  if (status === 'pedido_creado') return { label: 'Esperando cliente', tone: 'waiting', rank: 10, waitStartedAt: createdAt, waitLabel: 'Esperando' };
+  const waitMinutes = Math.max(0, Math.floor((now - waitStartedAt) / 60000));
+  if (waitMinutes > 10) return { label: 'Urgente', tone: 'urgent', rank: 40, waitStartedAt, waitLabel: 'Espera' };
+  if (waitMinutes >= 5) return { label: 'Atencion', tone: 'attention', rank: 30, waitStartedAt, waitLabel: 'Espera' };
+  return { label: 'Normal', tone: 'normal', rank: 20, waitStartedAt, waitLabel: 'Espera' };
+}
+function sortOrdersByPriority(orders, now = Date.now()) {
+  return [...orders].sort((a, b) => {
+    const priorityA = orderPriority(a, now);
+    const priorityB = orderPriority(b, now);
+    if (priorityA.rank !== priorityB.rank) return priorityB.rank - priorityA.rank;
+    return priorityA.waitStartedAt - priorityB.waitStartedAt;
+  });
+}
+function timestampValue(value) {
+  if (!value) return 0;
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 function orderIdentifier(order) {
   if (!order || typeof order !== 'object') return '';
