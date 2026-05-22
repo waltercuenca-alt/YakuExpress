@@ -1230,6 +1230,10 @@ function TvPanel({ navigate }) {
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [highlightedTvOrders, setHighlightedTvOrders] = useState(() => new Set());
+  const knownTvOrderStatesRef = useRef(new Map());
+  const didPrimeTvOrdersRef = useRef(false);
+  const highlightTimersRef = useRef(new Map());
 
   const activeOrders = useMemo(() => waitingCustomers(orders, now), [orders, now]);
   const createdOrders = useMemo(() => (
@@ -1244,6 +1248,48 @@ function TvPanel({ navigate }) {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => () => {
+    highlightTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    highlightTimersRef.current.clear();
+  }, []);
+
+  const highlightTvOrder = (order) => {
+    const orderKey = orderIdentifier(order);
+    if (!orderKey) return;
+    if (highlightTimersRef.current.has(orderKey)) window.clearTimeout(highlightTimersRef.current.get(orderKey));
+    setHighlightedTvOrders((current) => {
+      const next = new Set(current);
+      next.add(orderKey);
+      return next;
+    });
+    const timer = window.setTimeout(() => {
+      setHighlightedTvOrders((current) => {
+        const next = new Set(current);
+        next.delete(orderKey);
+        return next;
+      });
+      highlightTimersRef.current.delete(orderKey);
+    }, 4500);
+    highlightTimersRef.current.set(orderKey, timer);
+  };
+
+  const trackTvOrderChanges = (nextOrders) => {
+    const previousStates = knownTvOrderStatesRef.current;
+    const nextStates = new Map();
+    nextOrders.forEach((order) => {
+      const orderKey = orderIdentifier(order);
+      if (!orderKey) return;
+      const status = normalizeOperationalStatus(order.status);
+      nextStates.set(orderKey, status);
+      if (!didPrimeTvOrdersRef.current) return;
+      const previousStatus = previousStates.get(orderKey);
+      if (!previousStatus && status === 'pedido_creado') highlightTvOrder(order);
+      if (previousStatus === 'pedido_creado' && isWaitingCustomerOrder(order)) highlightTvOrder(order);
+    });
+    knownTvOrderStatesRef.current = nextStates;
+    didPrimeTvOrdersRef.current = true;
+  };
+
   useEffect(() => {
     if (!session?.token) return undefined;
     const loadTvOrders = async () => {
@@ -1254,7 +1300,9 @@ function TvPanel({ navigate }) {
           p_status: null,
         });
         if (error) throw error;
-        setOrders(Array.isArray(data) ? data.filter(Boolean) : []);
+        const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
+        trackTvOrderChanges(nextOrders);
+        setOrders(nextOrders);
         setMessage('');
       } catch (error) {
         console.error('YakuExpress modo TV error:', {
@@ -1281,12 +1329,12 @@ function TvPanel({ navigate }) {
     <main className={`tv-shell ${operationalStatus.tone}`}>
       <header className="tv-header">
         <div>
-          <span>YakuExpress</span>
-          <h1>YakuExpress - Modo TV</h1>
+          <span>YAKUEXPRESS</span>
+          <h1>Centro de pedidos</h1>
         </div>
         <div className="tv-status">
           <strong>{formatClock(now)}</strong>
-          <b>{operationalStatus.icon} {operationalStatus.label}</b>
+          <b><span>{operationalStatus.icon}</span> {formatOperationalTone(operationalStatus.tone)}</b>
         </div>
       </header>
 
@@ -1307,8 +1355,9 @@ function TvPanel({ navigate }) {
           <div className="tv-order-grid">
             {activeOrders.length ? activeOrders.map((order) => {
               const priority = orderPriority(order, now);
+              const isHighlighted = highlightedTvOrders.has(orderIdentifier(order));
               return (
-                <article key={order.code} className={`tv-order-card priority-${priority.tone} ${statusToneClass(order.status)}`}>
+                <article key={order.code} className={`tv-order-card priority-${priority.tone} ${statusToneClass(order.status)} ${isHighlighted ? 'is-new' : ''}`}>
                   <div className="tv-order-top">
                     <strong>{order.code}</strong>
                     <OrderPriorityBadge priority={priority} />
@@ -1336,7 +1385,9 @@ function TvPanel({ navigate }) {
             {createdOrders.length ? (
               <div className="tv-created-list">
                 {createdOrders.slice(0, 8).map((order) => (
-                  <strong key={order.code || order.id}>{formatTvOrderCode(order)}</strong>
+                  <strong key={order.code || order.id} className={highlightedTvOrders.has(orderIdentifier(order)) ? 'is-new' : ''}>
+                    {formatTvOrderCode(order)}
+                  </strong>
                 ))}
               </div>
             ) : (
@@ -2016,6 +2067,11 @@ function formatTvOrderCode(order) {
   const code = String(order?.code || order?.id || '').trim();
   if (!code) return '-';
   return code.replace(/^YAKU-/i, 'YAKU ');
+}
+function formatOperationalTone(tone) {
+  if (tone === 'saturated') return 'SATURADO';
+  if (tone === 'slow') return 'LENTO';
+  return 'FLUIDO';
 }
 function formatSupabaseError(error) {
   if (!error) return 'No se pudo crear el pedido.';
