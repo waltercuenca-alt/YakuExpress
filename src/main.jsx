@@ -761,6 +761,7 @@ function Caja({ session, setSession }) {
   }, [sortedTodayOrders, todayStatus]);
   const waitingCustomerOrders = useMemo(() => waitingCustomers(todayOrders, now), [todayOrders, now]);
   const operationalStatus = useMemo(() => buildOperationalStatus(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
+  const smartOrderAlerts = useMemo(() => buildSmartOrderAlerts(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
 
   const logCajaProError = (scope, error, extra = {}) => {
     console.error('YakuExpress fase2 caja pro error:', {
@@ -1030,6 +1031,21 @@ function Caja({ session, setSession }) {
           {operationalStatus.alerts.map((alert) => (
             <span key={alert}>{alert}</span>
           ))}
+        </div>
+        <div className="smart-alerts" aria-label="Alertas inteligentes">
+          <div className="smart-alerts-head">
+            <strong>Alertas inteligentes</strong>
+            <small>{smartOrderAlerts.length ? `${smartOrderAlerts.length} activas` : 'Operacion estable'}</small>
+          </div>
+          <div className="smart-alert-list">
+            {smartOrderAlerts.length ? smartOrderAlerts.slice(0, 5).map((alert) => (
+              <span key={alert.key} className={`smart-alert ${alert.tone}`}>
+                {alert.message}
+              </span>
+            )) : (
+              <span className="smart-alert neutral">Sin alertas criticas por ahora</span>
+            )}
+          </div>
         </div>
       </section>
       <section className="panel staff waiting-customers-panel">
@@ -1626,6 +1642,58 @@ function buildOperationalStatus(activeOrders, now = Date.now()) {
   ];
   if (tone === 'saturated') alerts.push('Operacion saturada: priorizar pedidos rojos');
   return { tone, icon, label, waitingCount, attentionCount, urgentCount, criticalCount, urgentCriticalCount, averageWaitMinutes, alerts };
+}
+function buildSmartOrderAlerts(activeOrders, now = Date.now()) {
+  const alerts = [];
+  if (activeOrders.length >= 5) {
+    alerts.push({
+      key: 'active-customers-saturated',
+      rank: 20,
+      tone: 'attention',
+      message: `Hay ${activeOrders.length} clientes esperando: operacion saturada`,
+    });
+  }
+  activeOrders.forEach((order) => {
+    const status = normalizeOperationalStatus(order.status);
+    const priority = orderPriority(order, now);
+    const code = order.code || order.id || 'sin codigo';
+    const waitMinutes = Math.max(0, Math.floor((now - (Number(priority.waitStartedAt) || now)) / 60000));
+    if (status === 'problema_demora') {
+      alerts.push({
+        key: `${code}-problem`,
+        rank: 50,
+        tone: 'critical',
+        message: `Pedido #${code}: marcado con problema o demora`,
+      });
+    }
+    if (status === 'cliente_en_caja' && priority.tone === 'urgent') {
+      alerts.push({
+        key: `${code}-waiting-too-long`,
+        rank: 40,
+        tone: 'urgent',
+        message: `Pedido #${code}: cliente esperando hace ${waitMinutes} min`,
+      });
+    }
+    if (priority.tone === 'urgent' || priority.tone === 'critical') {
+      alerts.push({
+        key: `${code}-needs-attention`,
+        rank: priority.tone === 'critical' ? 50 : 40,
+        tone: priority.tone === 'critical' ? 'critical' : 'urgent',
+        message: `Pedido #${code} requiere atencion inmediata`,
+      });
+    }
+    if (status === 'pago_procesado' && waitMinutes > 5) {
+      alerts.push({
+        key: `${code}-paid-not-finalized`,
+        rank: 30,
+        tone: 'attention',
+        message: `Pedido #${code}: pago procesado pendiente de finalizar`,
+      });
+    }
+  });
+  return alerts
+    .sort((a, b) => b.rank - a.rank)
+    .filter((alert, index, sortedAlerts) => sortedAlerts.findIndex((item) => item.key === alert.key) === index);
 }
 function timestampValue(value) {
   if (!value) return 0;
