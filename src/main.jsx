@@ -762,6 +762,10 @@ function Caja({ session, setSession }) {
   const waitingCustomerOrders = useMemo(() => waitingCustomers(todayOrders, now), [todayOrders, now]);
   const operationalStatus = useMemo(() => buildOperationalStatus(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
   const smartOrderAlerts = useMemo(() => buildSmartOrderAlerts(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
+  const operationalRecommendations = useMemo(
+    () => buildOperationalRecommendations(waitingCustomerOrders, operationalStatus),
+    [waitingCustomerOrders, operationalStatus],
+  );
 
   const logCajaProError = (scope, error, extra = {}) => {
     console.error('YakuExpress fase2 caja pro error:', {
@@ -1045,6 +1049,19 @@ function Caja({ session, setSession }) {
             )) : (
               <span className="smart-alert neutral">Sin alertas criticas por ahora</span>
             )}
+          </div>
+        </div>
+        <div className="operational-recommendations" aria-label="Recomendaciones operativas">
+          <div className="smart-alerts-head">
+            <strong>Recomendaciones operativas</strong>
+            <small>{operationalRecommendations.length} sugerencias</small>
+          </div>
+          <div className="recommendation-list">
+            {operationalRecommendations.slice(0, 3).map((recommendation) => (
+              <span key={recommendation.key} className={`recommendation ${recommendation.tone}`}>
+                {recommendation.message}
+              </span>
+            ))}
           </div>
         </div>
       </section>
@@ -1694,6 +1711,70 @@ function buildSmartOrderAlerts(activeOrders, now = Date.now()) {
   return alerts
     .sort((a, b) => b.rank - a.rank)
     .filter((alert, index, sortedAlerts) => sortedAlerts.findIndex((item) => item.key === alert.key) === index);
+}
+function buildOperationalRecommendations(activeOrders, operationalStatus) {
+  const recommendations = [];
+  const paidCount = activeOrders.filter((order) => normalizeOperationalStatus(order.status) === 'pago_procesado').length;
+  const problemCount = activeOrders.filter((order) => normalizeOperationalStatus(order.status) === 'problema_demora').length;
+  if (problemCount >= 1) {
+    recommendations.push({
+      key: 'resolve-problems',
+      rank: 70,
+      tone: 'urgent',
+      message: 'Sugerencia: resolver primero pedidos marcados con problema.',
+    });
+  }
+  if (operationalStatus.tone === 'saturated') {
+    recommendations.push({
+      key: 'saturated-flow',
+      rank: 60,
+      tone: 'urgent',
+      message: 'Operacion saturada. Priorizar pedidos rojos y reducir nuevos tiempos de espera.',
+    });
+  }
+  if (paidCount >= 3) {
+    recommendations.push({
+      key: 'review-paid',
+      rank: 50,
+      tone: 'preventive',
+      message: 'Sugerencia: revisar pedidos cobrados pendientes de finalizar.',
+    });
+  }
+  if (operationalStatus.waitingCount >= 5) {
+    recommendations.push({
+      key: 'reinforce-cashier',
+      rank: 40,
+      tone: 'preventive',
+      message: 'Sugerencia: reforzar caja o asignar apoyo temporal.',
+    });
+  }
+  if (operationalStatus.waitingCount === 0) {
+    recommendations.push({
+      key: 'free-operation',
+      rank: 30,
+      tone: 'stable',
+      message: 'No hay clientes activos en caja. Operacion libre.',
+    });
+  } else if (operationalStatus.tone === 'slow') {
+    recommendations.push({
+      key: 'slow-flow',
+      rank: 30,
+      tone: 'preventive',
+      message: 'Operacion lenta. Priorizar clientes con mayor tiempo de espera.',
+    });
+  } else if (operationalStatus.tone === 'fluid') {
+    recommendations.push({
+      key: 'stable-flow',
+      rank: 20,
+      tone: 'stable',
+      message: 'Operacion estable. Mantener flujo actual.',
+    });
+  }
+  return recommendations
+    .sort((a, b) => b.rank - a.rank)
+    .filter((recommendation, index, sortedRecommendations) => (
+      sortedRecommendations.findIndex((item) => item.message === recommendation.message) === index
+    ));
 }
 function timestampValue(value) {
   if (!value) return 0;

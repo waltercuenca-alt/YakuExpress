@@ -289,6 +289,12 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .smart-alert.critical { background: #c72121; border-color: #c72121; color: white; box-shadow: 0 12px 24px rgba(199, 33, 33, .18); }
 .smart-alert.attention { background: #fff8df; border-color: #ffe08a; color: #8a4b00; }
 .smart-alert.neutral { background: #f8fafc; border-color: #d8e0e8; color: #64748b; text-align: center; }
+.operational-recommendations { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(207,239,247,.9); }
+.recommendation-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.recommendation { display: block; min-height: 54px; padding: 10px; border-radius: 8px; border: 1px solid #d7eef5; background: rgba(255,255,255,.88); color: #245369; font-size: .84rem; font-weight: 950; line-height: 1.28; }
+.recommendation.stable { background: #e8fff3; border-color: #baf0d3; color: #087a43; }
+.recommendation.preventive { background: #fff8df; border-color: #ffe08a; color: #8a4b00; }
+.recommendation.urgent { background: #fff0f0; border-color: #ffc8c8; color: #c72121; box-shadow: 0 10px 22px rgba(199, 33, 33, .1); }
 .waiting-customers-panel { border-color: #baf0d3; background: #fbfffd; }
 .waiting-customers-head { align-items: center; }
 .waiting-customers-head h2 { margin: 0; }
@@ -365,6 +371,8 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .alert-center span { border-radius: 8px; font-size: .74rem; }
   .smart-alerts-head { align-items: flex-start; flex-direction: column; gap: 3px; }
   .smart-alert { font-size: .8rem; padding: 8px 9px; }
+  .recommendation-list { grid-template-columns: 1fr; gap: 6px; }
+  .recommendation { min-height: 0; font-size: .8rem; padding: 8px 9px; }
   .confirmation-head { text-align: center; justify-items: center; }
   .upsell { grid-template-columns: 1fr; }
   .upsell-actions { min-width: 0; }
