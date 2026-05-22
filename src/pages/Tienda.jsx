@@ -26,7 +26,8 @@ const fallbackProducts = [
   featured,
   badge,
   active: true,
-  image_url: productImage(name, color),
+  image_url: null,
+  placeholder_image_url: productImage(name, color),
 }));
 
 export default function Tienda({ navigate }) {
@@ -38,22 +39,38 @@ export default function Tienda({ navigate }) {
 
   useEffect(() => {
     const loadProducts = async () => {
+      console.log('[YakuStore] consultando store_products con image_url');
       const { data, error: loadError } = await supabase
         .from('store_products')
-        .select('*')
+        .select('id, name, category, price, image_url, featured, active, created_at')
         .eq('active', true)
         .order('featured', { ascending: false })
         .order('created_at', { ascending: true });
+      console.log('[YakuStore] store_products response', { data, loadError });
       if (!loadError && Array.isArray(data) && data.length) {
-        setProducts(data.map((product) => ({
+        const normalizedProducts = data.map((product) => ({
           ...product,
           badge: product.featured ? featuredBadge(product.name) : '',
-          image_url: product.image_url || productImage(product.name, product.featured ? '#00a7e1' : '#ff9f1c'),
-        })));
+          image_url: normalizeImageUrl(product.image_url),
+          placeholder_image_url: productImage(product.name, product.featured ? '#00a7e1' : '#ff9f1c'),
+        }));
+        console.log('[YakuStore] products', normalizedProducts);
+        setProducts(normalizedProducts);
+        return;
+      }
+      if (loadError) {
+        console.warn('[YakuStore] store_products fallback activo:', loadError);
+      } else {
+        console.log('[YakuStore] products fallback', fallbackProducts);
       }
     };
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    console.log('[YakuStore] products state', products);
+    console.log(products);
+  }, [products]);
 
   const cartItems = useMemo(() => products
     .map((product) => {
@@ -168,6 +185,11 @@ async function nextStoreCode() {
 
 function featuredBadge(name) {
   return /media|short|alicrado/i.test(name) ? 'Mas vendido' : 'Recomendado';
+}
+
+function normalizeImageUrl(imageUrl) {
+  const value = String(imageUrl || '').trim();
+  return value || null;
 }
 
 function productImage(name, color) {

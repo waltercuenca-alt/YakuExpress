@@ -34,6 +34,44 @@ create index if not exists store_products_active_idx on public.store_products(ac
 create index if not exists store_orders_status_created_idx on public.store_orders(status, created_at desc);
 create index if not exists store_order_items_order_id_idx on public.store_order_items(order_id);
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'store_products'
+      and policyname = 'store_products_public_select'
+  ) then
+    create policy "store_products_public_select"
+      on public.store_products
+      for select
+      to anon, authenticated
+      using (active = true);
+  end if;
+end $$;
+
+insert into storage.buckets (id, name, public)
+values ('store-products', 'store-products', true)
+on conflict (id) do update set public = true;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'store_products_public_read'
+  ) then
+    create policy "store_products_public_read"
+      on storage.objects
+      for select
+      to anon, authenticated
+      using (bucket_id = 'store-products');
+  end if;
+end $$;
+
 insert into public.store_products (id, name, category, price, image_url, featured, active)
 values
   ('00000000-0000-0000-0000-000000000001', 'Bloqueador SPF 50', 'Proteccion solar', 5, null, false, true),

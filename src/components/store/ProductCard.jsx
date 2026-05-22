@@ -2,11 +2,23 @@ import React from 'react';
 import QuantitySelector from './QuantitySelector.jsx';
 
 export default function ProductCard({ product, quantity, unitPrice, subtotal, onQuantityChange, onAdd }) {
+  const fallbackImage = product.placeholder_image_url;
+
   return (
     <article className={`store-product-card ${product.featured ? 'featured' : ''}`}>
       {product.badge && <span className="store-product-badge">{product.badge}</span>}
-      <div className="store-product-image" aria-hidden="true">
-        <img src={product.image_url} alt="" loading="lazy" />
+      <div className="store-product-image">
+        <img
+          src={product.image_url || fallbackImage}
+          alt={product.name}
+          loading="lazy"
+          onError={(e) => {
+            if (fallbackImage) {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = fallbackImage;
+            }
+          }}
+        />
       </div>
       <div className="store-product-copy">
         <small>{product.category}</small>
