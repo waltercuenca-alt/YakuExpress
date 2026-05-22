@@ -520,6 +520,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .tv-section-head span { color: #bff4db; font-weight: 1000; }
 .tv-created-panel { min-height: 300px; display: grid; align-content: start; justify-items: stretch; gap: 14px; text-align: center; }
 .tv-created-panel span { color: #bfefff; font-size: clamp(1.05rem, 2vw, 1.55rem); font-weight: 1000; line-height: 1.15; text-transform: uppercase; }
+.tv-created-panel small { color: rgba(234,250,255,.82); font-size: clamp(.9rem, 1.4vw, 1.1rem); font-weight: 900; line-height: 1.25; }
 .tv-created-panel p { margin: auto 0; color: #bfefff; font-size: clamp(1.25rem, 2.4vw, 2rem); font-weight: 950; line-height: 1.2; }
 .tv-created-list { display: grid; gap: 10px; }
 .tv-created-list strong { display: block; padding: 13px 10px; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(235,249,255,.94)); color: #f28b00; border: 1px solid rgba(255,255,255,.8); font-size: clamp(2.1rem, 4.9vw, 3.7rem); line-height: .95; box-shadow: 0 14px 28px rgba(0,0,0,.18), inset 0 0 0 1px rgba(0,169,216,.08); animation: tvCardEnter .28s ease both; transition: transform .22s ease, box-shadow .22s ease; }
@@ -542,6 +543,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .tv-empty { grid-column: 1 / -1; min-height: 260px; display: grid; place-items: center; gap: 8px; text-align: center; border-radius: 8px; border: 1px dashed rgba(255,255,255,.28); color: white; }
 .tv-empty strong { font-size: clamp(2rem, 4vw, 3.4rem); }
 .tv-empty span { color: #bfefff; font-weight: 900; }
+.tv-brand-line { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.14); color: rgba(234,250,255,.86); text-align: center; font-weight: 900; }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

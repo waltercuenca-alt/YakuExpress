@@ -20,32 +20,32 @@ const photoPacks = [
 ];
 const payMethods = ['Efectivo', 'Yape', 'Plin', 'Tarjeta', 'Transferencia', 'Otro'];
 const statusLabels = {
-  pedido_creado: 'Pedido creado',
+  pedido_creado: 'Pedido recibido',
   cliente_en_caja: 'Cliente en caja',
   pago_procesado: 'Pago procesado',
   finalizado: 'Finalizado',
   problema_demora: 'Problema / demora',
-  pending: 'Pedido creado',
+  pending: 'Pedido recibido',
   paid: 'Pago procesado',
   in_fazzure: 'Finalizado',
   cancelled: 'Problema / demora',
   expired: 'Expirado',
 };
 const orderStatusMeta = {
-  pedido_creado: { label: 'Pedido creado', tone: 'created' },
+  pedido_creado: { label: 'Pedido recibido', tone: 'created' },
   cliente_en_caja: { label: 'Cliente en caja', tone: 'cashier' },
   pago_procesado: { label: 'Pago procesado', tone: 'paid' },
   finalizado: { label: 'Finalizado', tone: 'finalized' },
   problema_demora: { label: 'Problema / demora', tone: 'delayed' },
   expired: { label: 'Expirado', tone: 'expired' },
-  pending: { label: 'Pedido creado', tone: 'created' },
+  pending: { label: 'Pedido recibido', tone: 'created' },
   paid: { label: 'Pago procesado', tone: 'paid' },
   in_fazzure: { label: 'Finalizado', tone: 'finalized' },
   cancelled: { label: 'Problema / demora', tone: 'delayed' },
 };
 const cashierStatusFilters = [
   ['', 'Todos'],
-  ['pedido_creado', 'Pedido creado'],
+  ['pedido_creado', 'Pedido recibido'],
   ['cliente_en_caja', 'Cliente en caja'],
   ['pago_procesado', 'Pago procesado'],
   ['finalizado', 'Finalizados'],
@@ -299,7 +299,7 @@ function ClientFlow({ navigate }) {
         <div className="how-steps">
           <div><strong>1</strong><span>Elegi tus entradas</span></div>
           <div><strong>2</strong><span>Personaliza tu experiencia</span></div>
-          <div><strong>3</strong><span>Mostra tu QR en caja</span></div>
+          <div><strong>3</strong><span>Mostra tu codigo Yaku en caja</span></div>
         </div>
       </section>
 
@@ -472,7 +472,7 @@ function ClientFlow({ navigate }) {
           <Summary order={order} total={total} />
           {error && <p className="error">{error}</p>}
           {busy && <PremiumLoading />}
-          <StepActions back={() => setStep(3)} next={submit} disabled={!validCustomer(order) || busy} label={busy ? <LoadingLabel /> : 'Generar codigo y QR'} />
+          <StepActions back={() => setStep(3)} next={submit} disabled={!validCustomer(order) || busy} label={busy ? <LoadingLabel /> : 'Enviar pedido a caja'} />
         </section>
       )}
       <MobileStickySummary order={order} total={total} step={step} />
@@ -484,8 +484,8 @@ function RecoverOrderBox({ code, setCode, recover, recovering, message }) {
   return (
     <section className="recover-card" aria-label="Recuperar pedido">
       <div>
-        <strong>¿Ya tenés un código?</strong>
-        <span>Si ya hiciste tu pedido, podés recuperar tu código QR acá.</span>
+        <strong>¿Ya tenes tu codigo Yaku?</strong>
+        <span>Si ya hiciste tu pedido, podes recuperar tu pase rapido aca.</span>
       </div>
       <div className="recover-form">
         <input
@@ -605,12 +605,12 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
 
   const shareByWhatsApp = () => {
     const message = [
-      '🌊 Tu pedido YakuExpress está listo',
+      '🌊 Tu pedido YakuExpress fue recibido',
       '',
       'Código:',
       order.code,
       '',
-      'Mostrá este código o QR en caja para agilizar tu ingreso a Yakupark.',
+      'Mostra tu codigo Yaku en caja para agilizar tu ingreso a Yakupark.',
       'Tu pedido vence en 1 hora.',
       '',
       '¡Nos vemos en Yakupark!',
@@ -640,27 +640,27 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
         {expired ? (
           <>
             <h1>Tu pedido expiro</h1>
-            <p className="soft">El QR ya no esta disponible para caja. Crea un pedido nuevo para generar un codigo actualizado.</p>
-            <button className="wide" onClick={createNewOrder}>Crear nuevo pedido</button>
+            <p className="soft">Este pase ya no esta disponible para caja. Crea un pedido nuevo para generar un codigo Yaku actualizado.</p>
+            <button className="wide" onClick={createNewOrder}>Enviar nuevo pedido a caja</button>
           </>
         ) : (
           <>
             <div className="confirmation-head">
               <Icon label="OK" large />
               <div>
-                <p className="success">Pedido generado correctamente</p>
-                <h1>Mostra este codigo en caja</h1>
-                <span>Tu pase YakuExpress esta listo. Caja puede escanear el QR o buscar tu codigo YAKU.</span>
+                <p className="success">Tu pedido fue recibido</p>
+                <h1>Mostra tu codigo Yaku en caja y segui disfrutando</h1>
+                <span>Seguimos con la aventura. Caja puede escanear el QR o buscar tu codigo YAKU.</span>
                 {status && <small className={`order-status ${status}`}>Estado: {statusLabels[status] || status}</small>}
               </div>
             </div>
 
             <div className="qr-layout">
               <div className="qr-card">
-                <div className="code-label">Codigo de pedido</div>
+                <div className="code-label">Tu codigo Yaku</div>
                 <div className="code">{order.code}</div>
                 <div className="qr"><img src={qrUrl} alt={`QR del pedido ${order.code}`} width="320" height="320" /></div>
-                <p className="qr-hint">Manten esta pantalla abierta, con el codigo visible y el brillo alto.</p>
+                <p className="qr-hint">Tu pedido llega directo al equipo de caja. Acercate con este codigo para procesar el pago.</p>
                 <div className="share-actions">
                   <button onClick={shareByWhatsApp}>📲 Enviarme código por WhatsApp</button>
                   <button className="ghost" onClick={copyCode}>📋 Copiar código</button>
@@ -678,7 +678,7 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
                 <div className="cashier-instructions">
                   <strong>Instrucciones para caja</strong>
                   <ol>
-                    <li>Escanear el QR o buscar el codigo {order.code}.</li>
+                    <li>Escanear el QR o buscar el codigo Yaku {order.code}.</li>
                     <li>Revisar entradas, horario, fotos y total.</li>
                     <li>Cobrar y marcar el pedido como Pagado o En Fazzure.</li>
                   </ol>
@@ -690,7 +690,7 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
 
             <div className="actions">
               <button className="ghost edit-before-pay" onClick={() => setStep(1)}>Editar antes de pagar</button>
-              <button className="ghost" onClick={createNewOrder}>Crear nuevo pedido</button>
+              <button className="ghost" onClick={createNewOrder}>Enviar nuevo pedido</button>
               <button onClick={() => navigate('/caja')}>Ir a caja</button>
             </div>
           </>
@@ -875,7 +875,7 @@ function Caja({ session, setSession }) {
       const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
       primeAndPlayOrderEvents(nextOrders);
       setTodayOrders(nextOrders);
-      setTodayMessage(nextOrders.length ? '' : 'No hay pedidos registrados hoy.');
+      setTodayMessage(nextOrders.length ? '' : 'Sin pedidos por ahora. Operacion tranquila en YakuExpress.');
     } catch (error) {
       logCajaProError('caja.todayOrders', error);
       setTodayOrders([]);
@@ -1131,7 +1131,7 @@ function Caja({ session, setSession }) {
             })}
           </div>
         ) : (
-          <p className="soft">Todavia no hay clientes marcados como presentes en caja.</p>
+          <p className="soft">No hay clientes esperando en caja.</p>
         )}
       </section>
       <section className="panel staff">
@@ -1407,7 +1407,7 @@ function TvPanel({ navigate }) {
               );
             }) : (
               <div className="tv-empty">
-                <strong>Sin clientes activos</strong>
+                <strong>Operacion tranquila en YakuExpress</strong>
                 <span>Los pedidos apareceran cuando caja marque Cliente en caja.</span>
               </div>
             )}
@@ -1417,6 +1417,7 @@ function TvPanel({ navigate }) {
         <aside className="tv-side-panel">
           <section className="tv-created-panel">
             <span>Pedidos creados por atender</span>
+            <small>Si ves tu codigo, tu pedido ya fue recibido.</small>
             {createdOrders.length ? (
               <div className="tv-created-list">
                 {createdOrders.slice(0, 8).map((order) => (
@@ -1431,6 +1432,7 @@ function TvPanel({ navigate }) {
           </section>
         </aside>
       </section>
+      <footer className="tv-brand-line">Gracias por visitar Yakupark Adventure · Tu aventura sigue en el mar · Paracas, Peru</footer>
     </main>
   );
 }
@@ -1804,7 +1806,7 @@ function normalizeOperationalStatus(status) {
 }
 function statusMeta(status) {
   const normalized = normalizeOperationalStatus(status);
-  return orderStatusMeta[normalized] || { label: statusLabels[status] || status || 'Pedido creado', tone: 'created' };
+  return orderStatusMeta[normalized] || { label: statusLabels[status] || status || 'Pedido recibido', tone: 'created' };
 }
 function statusToneClass(status) { return `state-${statusMeta(status).tone}`; }
 function countOrdersByStatus(orders, status) {
