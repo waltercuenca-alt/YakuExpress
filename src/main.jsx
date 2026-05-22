@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { supabase, syncOrderToSheets } from './supabase.js';
+import Tienda from './pages/Tienda.jsx';
 import './styles.css';
 
 const products = [
@@ -95,6 +96,7 @@ function App() {
   if (path.startsWith('/caja')) return <StaffPanel mode="caja" navigate={navigate} />;
   if (path.startsWith('/tv') || path.startsWith('/monitor')) return <TvPanel navigate={navigate} />;
   if (path.startsWith('/marketing')) return <StaffPanel mode="marketing" navigate={navigate} />;
+  if (path.startsWith('/tienda')) return <Tienda navigate={navigate} />;
   return <ClientFlow navigate={navigate} />;
 }
 
