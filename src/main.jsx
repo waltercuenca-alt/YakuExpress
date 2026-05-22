@@ -1232,9 +1232,12 @@ function TvPanel({ navigate }) {
   const [message, setMessage] = useState('');
 
   const activeOrders = useMemo(() => waitingCustomers(orders, now), [orders, now]);
+  const createdOrders = useMemo(() => (
+    orders
+      .filter((order) => normalizeOperationalStatus(order.status) === 'pedido_creado')
+      .sort((a, b) => timestampValue(b.created_at) - timestampValue(a.created_at))
+  ), [orders]);
   const operationalStatus = useMemo(() => buildOperationalStatus(activeOrders, now), [activeOrders, now]);
-  const smartAlerts = useMemo(() => buildSmartOrderAlerts(activeOrders, now), [activeOrders, now]);
-  const recommendations = useMemo(() => buildOperationalRecommendations(activeOrders, operationalStatus), [activeOrders, operationalStatus]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -1328,23 +1331,17 @@ function TvPanel({ navigate }) {
         </div>
 
         <aside className="tv-side-panel">
-          <section>
-            <h2>Alertas</h2>
-            <div className="tv-alert-list">
-              {smartAlerts.length ? smartAlerts.slice(0, 3).map((alert) => (
-                <span key={alert.key} className={`smart-alert ${alert.tone}`}>{alert.message}</span>
-              )) : (
-                <span className="smart-alert neutral">Sin alertas criticas por ahora</span>
-              )}
-            </div>
-          </section>
-          <section>
-            <h2>Recomendacion</h2>
-            {recommendations.slice(0, 1).map((recommendation) => (
-              <span key={recommendation.key} className={`recommendation ${recommendation.tone}`}>
-                {recommendation.message}
-              </span>
-            ))}
+          <section className="tv-created-panel">
+            <span>Pedidos creados por atender</span>
+            {createdOrders.length ? (
+              <div className="tv-created-list">
+                {createdOrders.slice(0, 8).map((order) => (
+                  <strong key={order.code || order.id}>{formatTvOrderCode(order)}</strong>
+                ))}
+              </div>
+            ) : (
+              <p>No hay pedidos pendientes por atender</p>
+            )}
           </section>
         </aside>
       </section>
@@ -2014,6 +2011,11 @@ function formatClock(value) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+function formatTvOrderCode(order) {
+  const code = String(order?.code || order?.id || '').trim();
+  if (!code) return '-';
+  return code.replace(/^YAKU-/i, 'YAKU ');
 }
 function formatSupabaseError(error) {
   if (!error) return 'No se pudo crear el pedido.';
