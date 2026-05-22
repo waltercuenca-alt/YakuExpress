@@ -93,6 +93,7 @@ function App() {
   };
 
   if (path.startsWith('/caja')) return <StaffPanel mode="caja" navigate={navigate} />;
+  if (path.startsWith('/tv') || path.startsWith('/monitor')) return <TvPanel navigate={navigate} />;
   if (path.startsWith('/marketing')) return <StaffPanel mode="marketing" navigate={navigate} />;
   return <ClientFlow navigate={navigate} />;
 }
@@ -1145,6 +1146,9 @@ function Caja({ session, setSession }) {
             <button className="ghost" onClick={() => refreshCaja()} disabled={todayLoading || summaryLoading}>
               {todayLoading ? 'Actualizando...' : 'Actualizar pedidos de hoy'}
             </button>
+            <button className="ghost tv-open-button" onClick={() => window.open(withBasePath('/tv'), '_blank', 'noopener,noreferrer')}>
+              Abrir Modo TV
+            </button>
           </div>
         </div>
         <small className="soft">Actualizacion automatica cada 10s</small>
@@ -1217,6 +1221,134 @@ function Caja({ session, setSession }) {
           />
         )}
     </Shell>
+  );
+}
+
+function TvPanel({ navigate }) {
+  const [session, setSession] = useState(readSession());
+  const [orders, setOrders] = useState([]);
+  const [now, setNow] = useState(Date.now());
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const activeOrders = useMemo(() => waitingCustomers(orders, now), [orders, now]);
+  const operationalStatus = useMemo(() => buildOperationalStatus(activeOrders, now), [activeOrders, now]);
+  const smartAlerts = useMemo(() => buildSmartOrderAlerts(activeOrders, now), [activeOrders, now]);
+  const recommendations = useMemo(() => buildOperationalRecommendations(activeOrders, operationalStatus), [activeOrders, operationalStatus]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.token) return undefined;
+    const loadTvOrders = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.rpc('staff_list_today_orders', {
+          p_session_token: session.token,
+          p_status: null,
+        });
+        if (error) throw error;
+        setOrders(Array.isArray(data) ? data.filter(Boolean) : []);
+        setMessage('');
+      } catch (error) {
+        console.error('YakuExpress modo TV error:', {
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code,
+          raw: error,
+        });
+        setOrders([]);
+        setMessage(`No pudimos cargar el modo TV: ${formatSupabaseError(error)}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTvOrders();
+    const timer = window.setInterval(loadTvOrders, 10000);
+    return () => window.clearInterval(timer);
+  }, [session?.token]);
+
+  if (!session) return <Login mode="caja" setSession={setSession} navigate={navigate} />;
+
+  return (
+    <main className={`tv-shell ${operationalStatus.tone}`}>
+      <header className="tv-header">
+        <div>
+          <span>YakuExpress</span>
+          <h1>YakuExpress - Modo TV</h1>
+        </div>
+        <div className="tv-status">
+          <strong>{formatClock(now)}</strong>
+          <b>{operationalStatus.icon} {operationalStatus.label}</b>
+        </div>
+      </header>
+
+      <section className="tv-metrics" aria-label="Metricas de operacion">
+        <div><span>Clientes esperando</span><strong>{operationalStatus.waitingCount}</strong></div>
+        <div><span>Urgentes / criticos</span><strong>{operationalStatus.urgentCriticalCount}</strong></div>
+        <div><span>Espera promedio</span><strong>{operationalStatus.averageWaitMinutes} min</strong></div>
+      </section>
+
+      {message && <p className="tv-message">{message}</p>}
+
+      <section className="tv-layout">
+        <div className="tv-main-panel">
+          <div className="tv-section-head">
+            <h2>Clientes esperando</h2>
+            <span>{loading ? 'Actualizando...' : 'En vivo'}</span>
+          </div>
+          <div className="tv-order-grid">
+            {activeOrders.length ? activeOrders.map((order) => {
+              const priority = orderPriority(order, now);
+              return (
+                <article key={order.code} className={`tv-order-card priority-${priority.tone} ${statusToneClass(order.status)}`}>
+                  <div className="tv-order-top">
+                    <strong>{order.code}</strong>
+                    <OrderPriorityBadge priority={priority} />
+                  </div>
+                  <h3>{order.customer_name || '-'}</h3>
+                  <div className="tv-order-badges">
+                    <OrderStatusBadge status={order.status} />
+                  </div>
+                  <b>{formatActiveDuration(priority.waitStartedAt, now)}</b>
+                  <small>{priority.waitLabel}</small>
+                </article>
+              );
+            }) : (
+              <div className="tv-empty">
+                <strong>Sin clientes activos</strong>
+                <span>Los pedidos apareceran cuando caja marque Cliente en caja.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <aside className="tv-side-panel">
+          <section>
+            <h2>Alertas</h2>
+            <div className="tv-alert-list">
+              {smartAlerts.length ? smartAlerts.slice(0, 3).map((alert) => (
+                <span key={alert.key} className={`smart-alert ${alert.tone}`}>{alert.message}</span>
+              )) : (
+                <span className="smart-alert neutral">Sin alertas criticas por ahora</span>
+              )}
+            </div>
+          </section>
+          <section>
+            <h2>Recomendacion</h2>
+            {recommendations.slice(0, 1).map((recommendation) => (
+              <span key={recommendation.key} className={`recommendation ${recommendation.tone}`}>
+                {recommendation.message}
+              </span>
+            ))}
+          </section>
+        </aside>
+      </section>
+    </main>
   );
 }
 
@@ -1870,6 +2002,14 @@ function formatTime(value) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleTimeString('es-PE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+function formatClock(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--:--';
   return date.toLocaleTimeString('es-PE', {
     hour: '2-digit',
     minute: '2-digit',
