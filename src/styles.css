@@ -261,6 +261,24 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .kpi.pago_procesado { background: #e8fff3; border-color: #baf0d3; }
 .kpi.finalizado, .kpi.in_fazzure { background: #f1f5f9; border-color: #cbd5e1; }
 .kpi.problema_demora, .kpi.cancelled { background: #fff0f0; border-color: #ffc8c8; }
+.operational-panel { gap: 12px; border-width: 2px; }
+.operational-panel.fluid { background: #f8fffb; border-color: #baf0d3; }
+.operational-panel.slow { background: #fffdf2; border-color: #ffe08a; }
+.operational-panel.saturated { background: #fff6f6; border-color: #ffc8c8; }
+.operational-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.operational-head span { display: block; color: #4b6d7b; font-size: .82rem; font-weight: 1000; text-transform: uppercase; }
+.operational-head h2 { margin: 3px 0 0; color: #073b58; font-size: 1.35rem; }
+.operational-head strong { min-width: 76px; min-height: 52px; display: grid; place-items: center; border-radius: 8px; background: white; color: #073b58; border: 1px solid #d7eef5; font-size: 1.25rem; box-shadow: 0 10px 22px rgba(0, 87, 120, .08); }
+.operational-panel.fluid .operational-head strong { color: #087a43; border-color: #baf0d3; }
+.operational-panel.slow .operational-head strong { color: #8a4b00; border-color: #ffe08a; }
+.operational-panel.saturated .operational-head strong { color: #c72121; border-color: #ffc8c8; }
+.operational-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.operational-metrics div { display: grid; gap: 4px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,.78); border: 1px solid rgba(207,239,247,.9); }
+.operational-metrics span { color: #4b6d7b; font-size: .78rem; font-weight: 900; line-height: 1.25; }
+.operational-metrics strong { color: #073b58; font-size: 1.2rem; }
+.alert-center { display: flex; flex-wrap: wrap; gap: 7px; }
+.alert-center span { padding: 7px 9px; border-radius: 999px; background: rgba(255,255,255,.82); color: #245369; border: 1px solid #d7eef5; font-size: .8rem; font-weight: 900; }
+.operational-panel.saturated .alert-center span:last-child { background: #c72121; color: white; border-color: #c72121; }
 .waiting-customers-panel { border-color: #baf0d3; background: #fbfffd; }
 .waiting-customers-head { align-items: center; }
 .waiting-customers-head h2 { margin: 0; }
@@ -329,6 +347,12 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .value-compare { grid-template-columns: 1fr; }
   .how-steps div { grid-template-columns: auto 1fr; }
   .cards, .option-grid, .form-grid, .metric-grid, .slots, .status-grid, .kpi-grid, .quick-grid, .receipt-grid, .qr-layout, .confirmation-head { grid-template-columns: 1fr; }
+  .operational-head { align-items: flex-start; }
+  .operational-head h2 { font-size: 1.12rem; }
+  .operational-head strong { min-width: 64px; min-height: 46px; font-size: 1rem; }
+  .operational-metrics { grid-template-columns: repeat(2, 1fr); }
+  .alert-center { gap: 6px; }
+  .alert-center span { border-radius: 8px; font-size: .74rem; }
   .confirmation-head { text-align: center; justify-items: center; }
   .upsell { grid-template-columns: 1fr; }
   .upsell-actions { min-width: 0; }

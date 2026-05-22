@@ -760,6 +760,7 @@ function Caja({ session, setSession }) {
     return sortedTodayOrders.filter((order) => normalizeOperationalStatus(order.status) === todayStatus);
   }, [sortedTodayOrders, todayStatus]);
   const waitingCustomerOrders = useMemo(() => waitingCustomers(todayOrders, now), [todayOrders, now]);
+  const operationalStatus = useMemo(() => buildOperationalStatus(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
 
   const logCajaProError = (scope, error, extra = {}) => {
     console.error('YakuExpress fase2 caja pro error:', {
@@ -996,6 +997,38 @@ function Caja({ session, setSession }) {
               <span>{label}</span>
               <strong>{summaryLoading ? '...' : value}</strong>
             </div>
+          ))}
+        </div>
+      </section>
+      <section className={`panel staff operational-panel ${operationalStatus.tone}`}>
+        <div className="operational-head">
+          <div>
+            <span>Estado operativo</span>
+            <h2>{operationalStatus.icon} {operationalStatus.label}</h2>
+          </div>
+          <strong>{operationalStatus.averageWaitMinutes} min</strong>
+        </div>
+        <div className="operational-metrics">
+          <div>
+            <span>Clientes esperando</span>
+            <strong>{operationalStatus.waitingCount}</strong>
+          </div>
+          <div>
+            <span>Pedidos en atencion</span>
+            <strong>{operationalStatus.attentionCount}</strong>
+          </div>
+          <div>
+            <span>Urgentes / criticos</span>
+            <strong>{operationalStatus.urgentCriticalCount}</strong>
+          </div>
+          <div>
+            <span>Espera promedio</span>
+            <strong>{operationalStatus.averageWaitMinutes} min</strong>
+          </div>
+        </div>
+        <div className="alert-center" aria-label="Centro de alertas">
+          {operationalStatus.alerts.map((alert) => (
+            <span key={alert}>{alert}</span>
           ))}
         </div>
       </section>
@@ -1555,6 +1588,44 @@ function isWaitingCustomerOrder(order) {
 }
 function waitingCustomers(orders, now = Date.now()) {
   return sortOrdersByPriority(orders.filter(isWaitingCustomerOrder), now);
+}
+function buildOperationalStatus(activeOrders, now = Date.now()) {
+  const waitingCount = activeOrders.length;
+  const priorities = activeOrders.map((order) => orderPriority(order, now));
+  const urgentCount = priorities.filter((priority) => priority.tone === 'urgent').length;
+  const criticalCount = activeOrders.filter((order, index) => (
+    normalizeOperationalStatus(order.status) === 'problema_demora' || priorities[index]?.tone === 'critical'
+  )).length;
+  const urgentCriticalCount = urgentCount + criticalCount;
+  const attentionCount = activeOrders.filter((order) => {
+    const status = normalizeOperationalStatus(order.status);
+    return status === 'cliente_en_caja' || status === 'pago_procesado';
+  }).length;
+  const totalWaitMinutes = priorities.reduce((sum, priority) => {
+    const waitStartedAt = Number(priority.waitStartedAt) || now;
+    return sum + Math.max(0, Math.floor((now - waitStartedAt) / 60000));
+  }, 0);
+  const averageWaitMinutes = waitingCount ? Math.round(totalWaitMinutes / waitingCount) : 0;
+  let tone = 'fluid';
+  let icon = '🟢';
+  let label = 'Operacion fluida';
+  if (waitingCount >= 5 || urgentCriticalCount >= 2 || criticalCount >= 1) {
+    tone = 'saturated';
+    icon = '🔴';
+    label = 'Operacion saturada';
+  } else if (waitingCount >= 3 || urgentCount >= 1) {
+    tone = 'slow';
+    icon = '🟡';
+    label = 'Operacion lenta';
+  }
+  const alerts = [
+    `Hay ${waitingCount} clientes esperando`,
+    `Hay ${urgentCount} pedidos urgentes`,
+    `Hay ${criticalCount} pedidos criticos`,
+    `Tiempo promedio de espera: ${averageWaitMinutes} min`,
+  ];
+  if (tone === 'saturated') alerts.push('Operacion saturada: priorizar pedidos rojos');
+  return { tone, icon, label, waitingCount, attentionCount, urgentCount, criticalCount, urgentCriticalCount, averageWaitMinutes, alerts };
 }
 function timestampValue(value) {
   if (!value) return 0;
