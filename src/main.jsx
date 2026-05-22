@@ -48,7 +48,7 @@ const cashierStatusFilters = [
   ['pedido_creado', 'Pedido creado'],
   ['cliente_en_caja', 'Cliente en caja'],
   ['pago_procesado', 'Pago procesado'],
-  ['finalizado', 'Finalizado'],
+  ['finalizado', 'Finalizados'],
   ['problema_demora', 'Problema / demora'],
 ];
 const cashierStatusActions = [
@@ -760,6 +760,7 @@ function Caja({ session, setSession }) {
     if (!todayStatus) return sortedTodayOrders;
     return sortedTodayOrders.filter((order) => normalizeOperationalStatus(order.status) === todayStatus);
   }, [sortedTodayOrders, todayStatus]);
+  const quickFilterCounts = useMemo(() => buildCashierFilterCounts(todayOrders), [todayOrders]);
   const waitingCustomerOrders = useMemo(() => waitingCustomers(todayOrders, now), [todayOrders, now]);
   const operationalStatus = useMemo(() => buildOperationalStatus(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
   const smartOrderAlerts = useMemo(() => buildSmartOrderAlerts(waitingCustomerOrders, now), [waitingCustomerOrders, now]);
@@ -962,7 +963,6 @@ function Caja({ session, setSession }) {
     if (error) throw error;
     playOrderSoundOnce({ code }, soundEventByStatus[normalizeOperationalStatus(data?.status || status)]);
     await syncOrderToSheets(code);
-    setTodayStatus('');
     await load();
     await refreshCaja();
     return data;
@@ -975,6 +975,17 @@ function Caja({ session, setSession }) {
       await updateStatus(order.code, status);
     } catch (error) {
       logCajaProError('caja.waitingCustomersAction', error, { code: order.code, status });
+      setTodayMessage(`Error al actualizar ${order.code}: ${formatSupabaseError(error)}`);
+    }
+  };
+
+  const runTodayExpressAction = async (event, order, status) => {
+    event.stopPropagation();
+    setTodayMessage('');
+    try {
+      await updateStatus(order.code, status);
+    } catch (error) {
+      logCajaProError('caja.todayExpressAction', error, { code: order.code, status });
       setTodayMessage(`Error al actualizar ${order.code}: ${formatSupabaseError(error)}`);
     }
   };
@@ -1152,15 +1163,27 @@ function Caja({ session, setSession }) {
           </div>
         </div>
         <small className="soft">Actualizacion automatica cada 10s</small>
-        <div className="chips">
+        <div className="express-summary" aria-label="Resumen rapido de caja">
+          {[
+            ['Pendientes', quickFilterCounts.pedido_creado, 'pedido_creado'],
+            ['En caja', quickFilterCounts.cliente_en_caja, 'cliente_en_caja'],
+            ['Pagados', quickFilterCounts.pago_procesado, 'pago_procesado'],
+            ['Problemas', quickFilterCounts.problema_demora, 'problema_demora'],
+          ].map(([label, value, tone]) => (
+            <span key={label} className={`express-summary-chip ${tone}`}>
+              {label}: <b>{value}</b>
+            </span>
+          ))}
+        </div>
+        <div className="chips quick-filter-bar" aria-label="Filtros rapidos">
           {cashierStatusFilters.map(([status, label]) => (
             <button
               key={label}
-              className={todayStatus === status ? 'chip active' : 'chip'}
+              className={todayStatus === status ? 'chip active quick-filter' : 'chip quick-filter'}
               onClick={() => setTodayStatus(status)}
               disabled={todayLoading}
             >
-              {label}
+              {label} <span>{quickFilterCounts[status || 'all'] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -1168,18 +1191,29 @@ function Caja({ session, setSession }) {
         <div className="today-list">
           {visibleTodayOrders.map((order) => {
             const priority = orderPriority(order, now);
+            const expressActions = expressActionsForOrder(order);
             return (
-            <button key={order.code} className={`today-row ${statusToneClass(order.status)} priority-${priority.tone}`} onClick={() => selectOrder(order)}>
-              <div className="today-code">
-                <strong>{order.code}</strong>
-                <OrderStatusBadge status={order.status} />
-                <OrderPriorityBadge priority={priority} />
+            <article key={order.code} className={`today-row express-order-row ${statusToneClass(order.status)} priority-${priority.tone}`}>
+              <button className="today-row-main" onClick={() => selectOrder(order)}>
+                <div className="today-code">
+                  <strong>{order.code}</strong>
+                  <OrderStatusBadge status={order.status} />
+                  <OrderPriorityBadge priority={priority} />
+                </div>
+                <span>{order.customer_name || '-'}</span>
+                <span>{order.payment_method || '-'}</span>
+                <b>S/{order.total || 0}</b>
+                <OrderTimeMeta order={order} now={now} priority={priority} />
+              </button>
+              <div className="express-actions">
+                {expressActions.map(([status, label]) => (
+                  <button key={status} className={`status ${status} compact-button`} onClick={(event) => runTodayExpressAction(event, order, status)}>
+                    {label}
+                  </button>
+                ))}
+                <button className="ghost compact-button" onClick={() => selectOrder(order)}>Ver</button>
               </div>
-              <span>{order.customer_name || '-'}</span>
-              <span>{order.payment_method || '-'}</span>
-              <b>S/{order.total || 0}</b>
-              <OrderTimeMeta order={order} now={now} priority={priority} />
-            </button>
+            </article>
             );
           })}
         </div>
@@ -1774,6 +1808,24 @@ function statusMeta(status) {
 function statusToneClass(status) { return `state-${statusMeta(status).tone}`; }
 function countOrdersByStatus(orders, status) {
   return orders.filter((order) => normalizeOperationalStatus(order.status) === status).length;
+}
+function buildCashierFilterCounts(orders) {
+  return {
+    all: orders.length,
+    pedido_creado: countOrdersByStatus(orders, 'pedido_creado'),
+    cliente_en_caja: countOrdersByStatus(orders, 'cliente_en_caja'),
+    pago_procesado: countOrdersByStatus(orders, 'pago_procesado'),
+    problema_demora: countOrdersByStatus(orders, 'problema_demora'),
+    finalizado: countOrdersByStatus(orders, 'finalizado'),
+  };
+}
+function expressActionsForOrder(order) {
+  const status = normalizeOperationalStatus(order?.status);
+  if (status === 'pedido_creado') return [['cliente_en_caja', 'Cliente en caja']];
+  if (status === 'cliente_en_caja') return [['pago_procesado', 'Pago procesado'], ['problema_demora', 'Problema']];
+  if (status === 'pago_procesado') return [['finalizado', 'Finalizar'], ['problema_demora', 'Problema']];
+  if (status === 'problema_demora') return [['finalizado', 'Finalizar']];
+  return [];
 }
 function orderPriority(order, now = Date.now()) {
   const status = normalizeOperationalStatus(order?.status);
