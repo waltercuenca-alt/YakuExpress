@@ -993,9 +993,9 @@ function Caja({ session, setSession }) {
   return (
     <Shell compact>
       <section className="panel staff">
-        <StaffHeader title="Caja" session={session} setSession={setSession} />
+        <StaffHeader title="Caja YakuExpress" session={session} setSession={setSession} />
         <div className="staff-head">
-          <h2>Resumen de caja hoy</h2>
+          <h2>Centro operativo de pedidos</h2>
           <small>Actualizacion automatica cada 10s</small>
         </div>
         {summaryMessage && <p className={summaryMessage.startsWith('Error') ? 'error' : 'soft'}>{summaryMessage}</p>}
