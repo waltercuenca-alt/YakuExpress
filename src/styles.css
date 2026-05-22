@@ -560,6 +560,34 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   18% { box-shadow: 0 0 0 6px rgba(255, 206, 96, .32), 0 22px 42px rgba(0,0,0,.22); }
   100% { box-shadow: 0 18px 34px rgba(0,0,0,.18); }
 }
+@keyframes yakuFadeSlide {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes yakuSoftPulse {
+  0%, 100% { box-shadow: 0 10px 24px rgba(0, 87, 120, .07); }
+  50% { box-shadow: 0 14px 32px rgba(255, 95, 87, .18); }
+}
+.hero, .panel:not(.staff), .done.confirmation { animation: yakuFadeSlide .34s ease both; }
+.product-card, .option-card, .receipt-card, .slot, .upsell, .qr-card, .expiry-card, .cashier-instructions { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background-color .22s ease, background .22s ease; }
+.product-card:hover:not(:disabled), .option-card:hover:not(:disabled), .receipt-card:hover:not(:disabled), .slot:hover:not(:disabled) { transform: translateY(-2px); }
+.confirmation-head, .qr-card { animation: yakuFadeSlide .36s ease both; }
+.express-order-row, .waiting-row, .operational-panel, .smart-alert, .recommendation, .express-summary-chip, .quick-filter, .sound-control { transition: transform .2s ease, box-shadow .22s ease, border-color .22s ease, background-color .22s ease, background .22s ease, color .18s ease; }
+.express-order-row, .waiting-row { animation: yakuFadeSlide .28s ease both; }
+.waiting-row.priority-urgent, .waiting-row.priority-critical, .express-order-row.priority-urgent, .express-order-row.priority-critical { animation: yakuFadeSlide .28s ease both, yakuSoftPulse 2.8s ease-in-out infinite; }
+.express-actions button:hover:not(:disabled), .waiting-actions button:hover:not(:disabled), .quick-filter:hover:not(:disabled), .sound-control button:hover:not(:disabled), .tv-open-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0, 119, 168, .13); }
+.express-actions button:active:not(:disabled), .waiting-actions button:active:not(:disabled), .quick-filter:active:not(:disabled), .sound-control button:active:not(:disabled), .tv-open-button:active:not(:disabled) { transform: translateY(0); }
+.order-state-badge, .priority-badge { transition: background-color .22s ease, color .22s ease, border-color .22s ease, transform .18s ease; }
+.tv-created-list strong, .tv-order-card, .tv-metrics div, .tv-status b, .tv-status strong { transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease, background .24s ease; }
+.tv-order-card.priority-urgent, .tv-order-card.priority-critical { animation: tvCardEnter .28s ease both, yakuSoftPulse 3.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
 @media (max-width: 760px) {
   .app-shell { padding: 10px 10px 82px; }
   .brand { align-items: flex-start; flex-direction: column; min-height: 96px; }
