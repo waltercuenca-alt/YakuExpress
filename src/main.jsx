@@ -755,6 +755,11 @@ function Caja({ session, setSession }) {
   const playedSoundEventsRef = useRef(new Set());
   const didPrimeOrderStatusRef = useRef(false);
   const sortedTodayOrders = useMemo(() => sortOrdersByPriority(todayOrders, now), [todayOrders, now]);
+  const visibleTodayOrders = useMemo(() => {
+    if (!todayStatus) return sortedTodayOrders;
+    return sortedTodayOrders.filter((order) => normalizeOperationalStatus(order.status) === todayStatus);
+  }, [sortedTodayOrders, todayStatus]);
+  const waitingCustomerOrders = useMemo(() => waitingCustomers(todayOrders, now), [todayOrders, now]);
 
   const logCajaProError = (scope, error, extra = {}) => {
     console.error('YakuExpress fase2 caja pro error:', {
@@ -849,13 +854,13 @@ function Caja({ session, setSession }) {
     }
   };
 
-  const loadToday = async (status = todayStatus) => {
+  const loadToday = async () => {
     setTodayLoading(true);
     setTodayMessage('Cargando pedidos de hoy...');
     try {
       const { data, error } = await supabase.rpc('staff_list_today_orders', {
         p_session_token: session.token,
-        p_status: status || null,
+        p_status: null,
       });
       if (error) throw error;
       const nextOrders = Array.isArray(data) ? data.filter(Boolean) : [];
@@ -863,7 +868,7 @@ function Caja({ session, setSession }) {
       setTodayOrders(nextOrders);
       setTodayMessage(nextOrders.length ? '' : 'No hay pedidos registrados hoy.');
     } catch (error) {
-      logCajaProError('caja.todayOrders', error, { status });
+      logCajaProError('caja.todayOrders', error);
       setTodayOrders([]);
       setTodayMessage(`Error suave al cargar pedidos de hoy: ${formatSupabaseError(error)}`);
     } finally {
@@ -871,8 +876,8 @@ function Caja({ session, setSession }) {
     }
   };
 
-  const refreshCaja = async (status = todayStatus) => {
-    await Promise.all([loadSummary(), loadToday(status)]);
+  const refreshCaja = async () => {
+    await Promise.all([loadSummary(), loadToday()]);
   };
 
   const load = async () => {
@@ -926,6 +931,10 @@ function Caja({ session, setSession }) {
 
   const handleOrderUpdated = (updatedOrder) => {
     if (!updatedOrder?.code) return;
+    if (normalizeOperationalStatus(updatedOrder.status) === 'finalizado') {
+      closeSelectedOrder();
+      return;
+    }
     setActiveOrder(updatedOrder);
   };
 
@@ -946,9 +955,21 @@ function Caja({ session, setSession }) {
     if (error) throw error;
     playOrderSoundOnce({ code }, soundEventByStatus[normalizeOperationalStatus(data?.status || status)]);
     await syncOrderToSheets(code);
+    setTodayStatus('');
     await load();
     await refreshCaja();
     return data;
+  };
+
+  const runWaitingCustomerAction = async (event, order, status) => {
+    event.stopPropagation();
+    setTodayMessage('');
+    try {
+      await updateStatus(order.code, status);
+    } catch (error) {
+      logCajaProError('caja.waitingCustomersAction', error, { code: order.code, status });
+      setTodayMessage(`Error al actualizar ${order.code}: ${formatSupabaseError(error)}`);
+    }
   };
 
   return (
@@ -977,6 +998,62 @@ function Caja({ session, setSession }) {
             </div>
           ))}
         </div>
+      </section>
+      <section className="panel staff waiting-customers-panel">
+        <div className="staff-head waiting-customers-head">
+          <div>
+            <h2>Clientes esperando</h2>
+            <small>Clientes esperando: {waitingCustomerOrders.length}</small>
+          </div>
+          <span className="waiting-count">{waitingCustomerOrders.length}</span>
+        </div>
+        {waitingCustomerOrders.length ? (
+          <div className="waiting-list">
+            {waitingCustomerOrders.map((order) => {
+              const priority = orderPriority(order, now);
+              const status = normalizeOperationalStatus(order.status);
+              return (
+                <article key={order.code} className={`waiting-row priority-${priority.tone} ${statusToneClass(order.status)}`}>
+                  <button className="waiting-main" onClick={() => selectOrder(order)}>
+                    <div className="waiting-code">
+                      <strong>{order.code}</strong>
+                      <span>{order.customer_name || '-'}</span>
+                    </div>
+                    <OrderTimeMeta order={order} now={now} priority={priority} />
+                    <div className="waiting-badges">
+                      <OrderStatusBadge status={order.status} />
+                      <OrderPriorityBadge priority={priority} />
+                    </div>
+                  </button>
+                  <div className="waiting-actions">
+                    {status === 'cliente_en_caja' && (
+                      <button className="status pago_procesado compact-button" onClick={(event) => runWaitingCustomerAction(event, order, 'pago_procesado')}>
+                        Pago procesado
+                      </button>
+                    )}
+                    {status === 'pago_procesado' && (
+                      <button className="status finalizado compact-button" onClick={(event) => runWaitingCustomerAction(event, order, 'finalizado')}>
+                        Finalizar
+                      </button>
+                    )}
+                    {status !== 'problema_demora' && (
+                      <button className="status problema_demora compact-button" onClick={(event) => runWaitingCustomerAction(event, order, 'problema_demora')}>
+                        Marcar problema
+                      </button>
+                    )}
+                    {status === 'problema_demora' && (
+                      <button className="status finalizado compact-button" onClick={(event) => runWaitingCustomerAction(event, order, 'finalizado')}>
+                        Finalizar
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="soft">Todavia no hay clientes marcados como presentes en caja.</p>
+        )}
       </section>
       <section className="panel staff">
         <div className="staff-head">
@@ -1010,7 +1087,7 @@ function Caja({ session, setSession }) {
             <button
               key={label}
               className={todayStatus === status ? 'chip active' : 'chip'}
-              onClick={() => { setTodayStatus(status); refreshCaja(status); }}
+              onClick={() => setTodayStatus(status)}
               disabled={todayLoading}
             >
               {label}
@@ -1019,7 +1096,7 @@ function Caja({ session, setSession }) {
         </div>
         {todayMessage && <p className={todayMessage.startsWith('Error') ? 'error' : 'soft'}>{todayMessage}</p>}
         <div className="today-list">
-          {sortedTodayOrders.map((order) => {
+          {visibleTodayOrders.map((order) => {
             const priority = orderPriority(order, now);
             return (
             <button key={order.code} className={`today-row ${statusToneClass(order.status)} priority-${priority.tone}`} onClick={() => selectOrder(order)}>
@@ -1097,14 +1174,19 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
     return () => window.clearInterval(timer);
   }, []);
 
-  const runAction = async (action) => {
+  const runAction = async (action, options = {}) => {
     setSaving(true);
     setActionMessage('');
     setActionError('');
     try {
       const updatedOrder = await action();
-      if (updatedOrder?.code) onOrderUpdated?.(updatedOrder);
+      const updatedStatus = normalizeOperationalStatus(updatedOrder?.status);
       await refresh();
+      if (options.closeOnFinalized || updatedStatus === 'finalizado') {
+        close();
+        return;
+      }
+      if (updatedOrder?.code) onOrderUpdated?.(updatedOrder);
       setActionMessage((current) => current || 'Pedido actualizado correctamente');
     } catch (error) {
       console.error('YakuExpress fase2 caja pro error:', {
@@ -1159,7 +1241,7 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
   return (
     <div className="modal-backdrop">
       <div className="modal">
-        <button className="icon-button close" onClick={close}>x</button>
+        <button type="button" className="icon-button close" onClick={close} aria-label="Cerrar pedido">X</button>
         <div className="modal-order-head">
           <div>
             <h2>{order.code}</h2>
@@ -1208,7 +1290,7 @@ function OrderModal({ order, session, close, updateStatus, refresh, onOrderUpdat
         <button className="wide" onClick={() => runAction(save)} disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
         <div className="status-grid">
           {cashierStatusActions.map(([status, label]) => (
-            <button key={status} className={`status ${status}`} disabled={saving} onClick={() => runAction(() => updateStatus(order.code, status))}>
+            <button key={status} className={`status ${status}`} disabled={saving} onClick={() => runAction(() => updateStatus(order.code, status), { closeOnFinalized: status === 'finalizado' })}>
               {label}
             </button>
           ))}
@@ -1466,6 +1548,13 @@ function sortOrdersByPriority(orders, now = Date.now()) {
     if (priorityA.rank !== priorityB.rank) return priorityB.rank - priorityA.rank;
     return priorityA.waitStartedAt - priorityB.waitStartedAt;
   });
+}
+function isWaitingCustomerOrder(order) {
+  const status = normalizeOperationalStatus(order?.status);
+  return status === 'cliente_en_caja' || status === 'pago_procesado' || status === 'problema_demora';
+}
+function waitingCustomers(orders, now = Date.now()) {
+  return sortOrdersByPriority(orders.filter(isWaitingCustomerOrder), now);
 }
 function timestampValue(value) {
   if (!value) return 0;

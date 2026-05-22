@@ -261,11 +261,30 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .kpi.pago_procesado { background: #e8fff3; border-color: #baf0d3; }
 .kpi.finalizado, .kpi.in_fazzure { background: #f1f5f9; border-color: #cbd5e1; }
 .kpi.problema_demora, .kpi.cancelled { background: #fff0f0; border-color: #ffc8c8; }
+.waiting-customers-panel { border-color: #baf0d3; background: #fbfffd; }
+.waiting-customers-head { align-items: center; }
+.waiting-customers-head h2 { margin: 0; }
+.waiting-customers-head small { display: block; margin-top: 3px; color: #356178; font-weight: 900; }
+.waiting-count { min-width: 48px; min-height: 48px; display: grid; place-items: center; border-radius: 8px; background: #073b58; color: #ffce60; font-size: 1.35rem; font-weight: 1000; }
+.waiting-list { display: grid; gap: 9px; }
+.waiting-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: stretch; border: 1px solid #cfeff7; border-left: 7px solid #087a43; border-radius: 8px; background: white; padding: 10px; }
+.waiting-row.priority-normal { background: #f8fffb; border-left-color: #087a43; }
+.waiting-row.priority-attention { background: #fffdf2; border-left-color: #f5b51b; box-shadow: 0 10px 24px rgba(245, 181, 27, .12); }
+.waiting-row.priority-urgent { background: #fff8f8; border-left-color: #ef4444; box-shadow: 0 12px 26px rgba(239, 68, 68, .14); }
+.waiting-row.priority-critical { background: #fff0f0; border-left-color: #b91c1c; box-shadow: 0 14px 30px rgba(185, 28, 28, .18); }
+.waiting-main { min-height: 0; display: grid; grid-template-columns: minmax(150px, 1fr) minmax(125px, auto) auto; gap: 10px; align-items: center; padding: 0; background: transparent; box-shadow: none; color: #073b58; text-align: left; }
+.waiting-main:hover:not(:disabled) { transform: none; }
+.waiting-code { display: grid; gap: 4px; }
+.waiting-code strong { color: #f28b00; font-size: 1.08rem; }
+.waiting-code span { color: #245369; font-weight: 900; line-height: 1.25; }
+.waiting-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.waiting-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; max-width: 330px; }
+.waiting-actions button { min-height: 40px; text-align: center; white-space: nowrap; box-shadow: none; }
 .quick-charge { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid #cfeff7; border-radius: 8px; background: #f7fdff; }
 .quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 24, 38, .55); display: grid; place-items: center; padding: 16px; z-index: 10; }
 .modal { width: min(620px, 100%); max-height: 92vh; overflow: auto; background: white; border-radius: 8px; padding: 18px; position: relative; }
-.close { position: absolute; right: 12px; top: 12px; }
+.close { position: sticky; top: 0; z-index: 20; float: right; margin: -6px -6px 6px 10px; background: #073b58; color: white; border: 2px solid white; box-shadow: 0 8px 18px rgba(2, 24, 38, .24); }
 .modal-order-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 42px; margin-bottom: 14px; }
 .modal-order-head h2 { margin: 0 0 6px; }
 .modal-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
@@ -317,6 +336,12 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .today-row { grid-template-columns: 1fr; gap: 8px; }
   .today-code { grid-template-columns: 1fr auto; }
   .order-time-meta { grid-template-columns: 1fr auto; }
+  .waiting-customers-head { display: flex; flex-direction: row; align-items: center; }
+  .waiting-row { grid-template-columns: 1fr; }
+  .waiting-main { grid-template-columns: 1fr; gap: 7px; }
+  .waiting-badges { justify-content: flex-start; }
+  .waiting-actions { max-width: none; justify-content: stretch; }
+  .waiting-actions button { flex: 1 1 150px; white-space: normal; }
   .modal-order-head { display: grid; gap: 8px; padding-right: 42px; }
   .cashier-tools { width: 100%; justify-content: stretch; }
   .cashier-tools > * { flex: 1; }
