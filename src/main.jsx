@@ -278,13 +278,14 @@ function ClientFlow({ navigate }) {
       <section className="hero">
         <div>
           <p>YakuExpress</p>
-          <h1>Compra rapida YakuExpress</h1>
+          <h1>Tu pedido rapido en Yakupark</h1>
+          <span className="hero-subcopy">Pedi facil, acercate a caja y segui disfrutando.</span>
           <span>Evitá filas y prepará tu ingreso a Yakupark en menos de 1 minuto.</span>
           <div className="hero-benefits">
-            <b>Mas rapido en caja</b>
-            <b>Reserva tu ingreso</b>
-            <b>Agrega tus fotos del dia</b>
-            <b>Disfruta mas tiempo</b>
+            <b>Diversion sobre el mar</b>
+            <b>Listo para caja</b>
+            <b>Fotos y recuerdos</b>
+            <b>Mas tiempo en el agua</b>
           </div>
         </div>
         <Icon label="A" large />
@@ -292,8 +293,8 @@ function ClientFlow({ navigate }) {
 
       <section className="client-intro">
         <div className="trust-strip">
-          <strong>Seguro y rapido</strong>
-          <span>Tu pedido se guarda automaticamente y podras mostrar tu codigo QR en caja.</span>
+          <strong>Tu pedido llegara directo a caja</strong>
+          <span>Luego acercate con tu codigo para procesar el pago y seguir disfrutando Yakupark.</span>
         </div>
         <div className="how-steps">
           <div><strong>1</strong><span>Elegi tus entradas</span></div>
@@ -648,8 +649,8 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
               <Icon label="OK" large />
               <div>
                 <p className="success">Pedido generado correctamente</p>
-                <h1>Mostrá este QR en caja</h1>
-                <span>La persona de caja puede escanearlo o buscar el codigo YAKU manualmente.</span>
+                <h1>Mostra este codigo en caja</h1>
+                <span>Tu pase YakuExpress esta listo. Caja puede escanear el QR o buscar tu codigo YAKU.</span>
                 {status && <small className={`order-status ${status}`}>Estado: {statusLabels[status] || status}</small>}
               </div>
             </div>
