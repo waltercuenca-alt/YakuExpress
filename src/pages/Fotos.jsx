@@ -93,9 +93,14 @@ export default function Fotos({ navigate, path = '' }) {
       const { data: order, error: orderInsertError } = await supabase
         .from('photo_orders')
         .insert({
+          order_code: orderCode,
           code: orderCode,
+          client_code: searchedCode,
           customer_code: searchedCode,
+          selected_count: selectedPhotos.length,
           photo_count: selectedPhotos.length,
+          package_type: packageInfo.type,
+          total_amount: packageInfo.total,
           total: packageInfo.total,
           status: 'pending',
         })
@@ -105,11 +110,13 @@ export default function Fotos({ navigate, path = '' }) {
       if (orderInsertError) throw orderInsertError;
 
       const rows = selectedPhotos.map((photo) => ({
+        photo_order_id: order.id,
         order_id: order.id,
         public_id: photo.publicId,
-        preview_url: photo.thumbUrl,
-        full_url: photo.fullUrl,
         photo_number: photo.number,
+        image_url: photo.fullUrl,
+        full_url: photo.fullUrl,
+        preview_url: photo.thumbUrl,
       }));
       const { error: itemsInsertError } = await supabase.from('photo_order_items').insert(rows);
       if (itemsInsertError) throw itemsInsertError;
@@ -117,10 +124,10 @@ export default function Fotos({ navigate, path = '' }) {
       setSummaryOpen(false);
       setSuccessOrder({
         ...order,
-        code: orderCode,
-        customer_code: searchedCode,
+        order_code: orderCode,
+        client_code: searchedCode,
         items: selectedPhotos,
-        total: packageInfo.total,
+        total_amount: packageInfo.total,
       });
     } catch (createError) {
       console.error('YakuExpress fotos order error:', createError);
@@ -254,23 +261,23 @@ async function loadClientPhotos(code) {
 async function nextPhotoOrderCode() {
   const { data, error } = await supabase
     .from('photo_orders')
-    .select('code')
-    .like('code', 'YK-PHOTO-%')
+    .select('order_code')
+    .like('order_code', 'YKPHOTO-%')
     .order('created_at', { ascending: false })
     .limit(1);
   if (error) throw error;
-  const lastCode = data?.[0]?.code || '';
+  const lastCode = data?.[0]?.order_code || '';
   const lastNumber = Number(String(lastCode).replace(/\D/g, '')) || 0;
-  return `YK-PHOTO-${String(lastNumber + 1).padStart(4, '0')}`;
+  return `YKPHOTO-${String(lastNumber + 1).padStart(4, '0')}`;
 }
 
 function photoPackageFor(selectedCount, totalPhotos) {
-  if (!selectedCount) return { label: 'Sin fotos seleccionadas', total: 0, displayTotal: 'S/0', upsell: '' };
-  if (selectedCount === 1) return { label: '1 foto', total: 0, displayTotal: 'Gratis', upsell: 'Selecciona una mas y arma tu primer paquete.' };
-  if (totalPhotos > 1 && selectedCount === totalPhotos) return { label: 'Todas las fotos', total: 80, displayTotal: 'S/80', upsell: 'Te llevas todos los recuerdos de tu aventura.' };
-  if (selectedCount === 2) return { label: '2 fotos', total: 30, displayTotal: 'S/30', upsell: totalPhotos > 2 ? 'Por S/50 mas llevate todas las fotos.' : '' };
-  if (selectedCount <= 7) return { label: '3 a 7 fotos', total: 50, displayTotal: 'S/50', upsell: totalPhotos > selectedCount ? 'Por S/30 mas llevate todas las fotos.' : '' };
-  return { label: 'Paquete completo', total: 80, displayTotal: 'S/80', upsell: 'Listo para retirar en caja.' };
+  if (!selectedCount) return { type: 'none', label: 'Sin fotos seleccionadas', total: 0, displayTotal: 'S/0', upsell: '' };
+  if (selectedCount === 1) return { type: '1 FOTO', label: '1 foto', total: 0, displayTotal: 'Gratis', upsell: 'Selecciona una mas y arma tu primer paquete.' };
+  if (totalPhotos > 1 && selectedCount === totalPhotos) return { type: 'TODAS LAS FOTOS', label: 'Todas las fotos', total: 80, displayTotal: 'S/80', upsell: 'Te llevas todos los recuerdos de tu aventura.' };
+  if (selectedCount === 2) return { type: '2 FOTOS', label: '2 fotos', total: 30, displayTotal: 'S/30', upsell: totalPhotos > 2 ? 'Por S/50 mas llevate todas las fotos.' : '' };
+  if (selectedCount <= 7) return { type: '3 A 7 FOTOS', label: '3 a 7 fotos', total: 50, displayTotal: 'S/50', upsell: totalPhotos > selectedCount ? 'Por S/30 mas llevate todas las fotos.' : '' };
+  return { type: 'TODAS LAS FOTOS', label: 'Paquete completo', total: 80, displayTotal: 'S/80', upsell: 'Listo para retirar en caja.' };
 }
 
 function PhotoLoading() {

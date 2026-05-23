@@ -741,6 +741,7 @@ function Login({ mode, setSession, navigate }) {
 function Caja({ session, setSession }) {
   const [orders, setOrders] = useState([]);
   const [todayOrders, setTodayOrders] = useState([]);
+  const [photoOrders, setPhotoOrders] = useState([]);
   const [todayStatus, setTodayStatus] = useState('');
   const [now, setNow] = useState(Date.now());
   const [cashierSummary, setCashierSummary] = useState(null);
@@ -752,12 +753,15 @@ function Caja({ session, setSession }) {
   const [searchMessage, setSearchMessage] = useState('');
   const [todayMessage, setTodayMessage] = useState('');
   const [summaryMessage, setSummaryMessage] = useState('');
+  const [photoOrdersMessage, setPhotoOrdersMessage] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const audioContextRef = useRef(null);
   const soundEnabledRef = useRef(soundEnabled);
   const audioUnlockedRef = useRef(audioUnlocked);
   const knownOrderStatusesRef = useRef(new Map());
+  const knownPhotoOrderIdsRef = useRef(new Set());
+  const didPrimePhotoOrdersRef = useRef(false);
   const playedSoundEventsRef = useRef(new Set());
   const didPrimeOrderStatusRef = useRef(false);
   const sortedTodayOrders = useMemo(() => sortOrdersByPriority(todayOrders, now), [todayOrders, now]);
@@ -889,8 +893,64 @@ function Caja({ session, setSession }) {
     }
   };
 
+  const loadPhotoOrders = async () => {
+    try {
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('photo_orders')
+        .select('id, order_code, client_code, selected_count, package_type, total_amount, status, created_at')
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false });
+      if (ordersError) throw ordersError;
+      const basePhotoOrders = Array.isArray(ordersData) ? ordersData.filter(Boolean) : [];
+      const orderIds = basePhotoOrders.map((order) => order.id).filter(Boolean);
+      let itemsByOrder = {};
+      if (orderIds.length) {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('photo_order_items')
+          .select('id, photo_order_id, photo_number, image_url')
+          .in('photo_order_id', orderIds)
+          .order('photo_number', { ascending: true });
+        if (itemsError) throw itemsError;
+        itemsByOrder = (Array.isArray(itemsData) ? itemsData : []).reduce((acc, item) => {
+          const key = item.photo_order_id;
+          acc[key] = [...(acc[key] || []), item];
+          return acc;
+        }, {});
+      }
+      const nextPhotoOrders = basePhotoOrders.map((order) => ({
+        ...order,
+        photo_order_items: itemsByOrder[order.id] || [],
+      }));
+      primeAndPlayPhotoOrderEvents(nextPhotoOrders);
+      setPhotoOrders(nextPhotoOrders);
+      setPhotoOrdersMessage(nextPhotoOrders.length ? '' : 'Sin pedidos de fotos por ahora.');
+    } catch (error) {
+      logCajaProError('caja.photoOrders', error);
+      setPhotoOrders([]);
+      setPhotoOrdersMessage(`Error al cargar pedidos de fotos: ${formatSupabaseError(error)}`);
+    }
+  };
+
+  const primeAndPlayPhotoOrderEvents = (nextPhotoOrders) => {
+    const previousIds = knownPhotoOrderIdsRef.current;
+    const nextIds = new Set();
+    nextPhotoOrders.forEach((order) => {
+      if (!order?.id) return;
+      nextIds.add(order.id);
+      if (!didPrimePhotoOrdersRef.current) return;
+      if (!previousIds.has(order.id) && order.status === 'pending') {
+        console.log('NUEVO PEDIDO DE FOTOS', order.order_code);
+        if (soundEnabledRef.current && audioUnlockedRef.current) {
+          playCashierSound('new_order', audioContextRef);
+        }
+      }
+    });
+    knownPhotoOrderIdsRef.current = nextIds;
+    didPrimePhotoOrdersRef.current = true;
+  };
+
   const refreshCaja = async () => {
-    await Promise.all([loadSummary(), loadToday()]);
+    await Promise.all([loadSummary(), loadToday(), loadPhotoOrders()]);
   };
 
   const load = async () => {
@@ -994,6 +1054,33 @@ function Caja({ session, setSession }) {
       setTodayMessage(`Error al actualizar ${order.code}: ${formatSupabaseError(error)}`);
     }
   };
+
+  const updatePhotoOrderStatus = async (photoOrder, status) => {
+    setPhotoOrdersMessage('');
+    try {
+      const { error } = await supabase
+        .from('photo_orders')
+        .update({ status })
+        .eq('id', photoOrder.id);
+      if (error) throw error;
+      await loadPhotoOrders();
+    } catch (error) {
+      logCajaProError('caja.photoOrderStatus', error, { order: photoOrder.order_code, status });
+      setPhotoOrdersMessage(`Error al actualizar ${photoOrder.order_code}: ${formatSupabaseError(error)}`);
+    }
+  };
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('photo-orders-cashier')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'photo_orders' }, () => {
+        loadPhotoOrders();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <Shell compact>
@@ -1136,6 +1223,58 @@ function Caja({ session, setSession }) {
           </div>
         ) : (
           <p className="soft">No hay clientes esperando en caja.</p>
+        )}
+      </section>
+      <section className="panel staff photo-orders-panel">
+        <div className="staff-head">
+          <div>
+            <h2>Pedidos de Fotos</h2>
+            <small>{photoOrders.length ? 'NUEVO PEDIDO DE FOTOS' : 'Modulo de fotos conectado'}</small>
+          </div>
+          {photoOrders.some((order) => order.status === 'pending') && <span className="photo-orders-badge">Nuevo</span>}
+        </div>
+        {photoOrdersMessage && <p className={photoOrdersMessage.startsWith('Error') ? 'error' : 'soft'}>{photoOrdersMessage}</p>}
+        {photoOrders.length ? (
+          <div className="photo-orders-grid">
+            {photoOrders.map((photoOrder) => {
+              const items = Array.isArray(photoOrder.photo_order_items) ? photoOrder.photo_order_items : [];
+              return (
+                <article key={photoOrder.id} className={`photo-order-card ${photoOrder.status}`}>
+                  <div className="photo-order-head">
+                    <div>
+                      <span>Codigo</span>
+                      <strong>{photoOrder.order_code}</strong>
+                    </div>
+                    <b>{photoOrderStatusLabel(photoOrder.status)}</b>
+                  </div>
+                  <div className="photo-order-details">
+                    <span>Cliente: <b>{photoOrder.client_code}</b></span>
+                    <span>Pack: <b>{photoOrder.package_type}</b></span>
+                    <span>Cantidad: <b>{photoOrder.selected_count} fotos</b></span>
+                    <span>Monto: <b>{formatPhotoMoney(photoOrder.total_amount)}</b></span>
+                  </div>
+                  <div className="photo-order-selected">
+                    <span>Fotos elegidas</span>
+                    <strong>{items.length ? items.map((item) => `#${item.photo_number}`).join(' ') : '-'}</strong>
+                  </div>
+                  <div className="photo-order-actions">
+                    {photoOrder.status === 'pending' && (
+                      <button type="button" onClick={() => updatePhotoOrderStatus(photoOrder, 'processing')}>
+                        Marcar en proceso
+                      </button>
+                    )}
+                    {photoOrder.status !== 'completed' && (
+                      <button type="button" onClick={() => updatePhotoOrderStatus(photoOrder, 'completed')}>
+                        Marcar entregado
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="soft">Sin pedidos de fotos por ahora.</p>
         )}
       </section>
       <section className="panel staff">
@@ -1685,6 +1824,18 @@ function OrderStatusBadge({ status }) {
 
 function OrderPriorityBadge({ priority }) {
   return <span className={`priority-badge ${priority.tone}`}>{priority.label}</span>;
+}
+
+function photoOrderStatusLabel(status) {
+  return ({
+    pending: 'Pendiente',
+    processing: 'En proceso',
+    completed: 'Entregado',
+  })[status] || status || 'Pendiente';
+}
+
+function formatPhotoMoney(amount) {
+  return Number(amount) === 0 ? 'Gratis' : `S/${Number(amount || 0)}`;
 }
 
 function OrderTimeMeta({ order, now, priority = orderPriority(order, now) }) {

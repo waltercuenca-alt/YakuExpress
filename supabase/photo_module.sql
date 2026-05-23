@@ -2,27 +2,80 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.photo_orders (
   id uuid primary key default gen_random_uuid(),
-  code text unique not null,
-  customer_code text not null,
-  photo_count integer not null check (photo_count > 0),
-  total numeric not null default 0,
-  status text not null default 'pending' check (status in ('pending', 'paid', 'delivered', 'cancelled')),
+  order_code text unique,
+  client_code text,
+  selected_count integer,
+  package_type text,
+  total_amount numeric not null default 0,
+  status text not null default 'pending',
   created_at timestamp with time zone default now()
 );
 
 create table if not exists public.photo_order_items (
   id uuid primary key default gen_random_uuid(),
-  order_id uuid references public.photo_orders(id) on delete cascade,
-  public_id text not null,
-  preview_url text,
-  full_url text,
+  photo_order_id uuid references public.photo_orders(id) on delete cascade,
   photo_number integer,
+  image_url text,
   created_at timestamp with time zone default now()
 );
 
-create index if not exists photo_orders_code_idx on public.photo_orders(code);
-create index if not exists photo_orders_customer_created_idx on public.photo_orders(customer_code, created_at desc);
-create index if not exists photo_order_items_order_id_idx on public.photo_order_items(order_id);
+alter table public.photo_orders add column if not exists order_code text;
+alter table public.photo_orders add column if not exists client_code text;
+alter table public.photo_orders add column if not exists selected_count integer;
+alter table public.photo_orders add column if not exists package_type text;
+alter table public.photo_orders add column if not exists total_amount numeric not null default 0;
+alter table public.photo_orders add column if not exists status text not null default 'pending';
+alter table public.photo_orders add column if not exists created_at timestamp with time zone default now();
+alter table public.photo_orders add column if not exists code text;
+alter table public.photo_orders add column if not exists customer_code text;
+alter table public.photo_orders add column if not exists photo_count integer;
+alter table public.photo_orders add column if not exists total numeric;
+
+alter table public.photo_order_items add column if not exists photo_order_id uuid references public.photo_orders(id) on delete cascade;
+alter table public.photo_order_items add column if not exists photo_number integer;
+alter table public.photo_order_items add column if not exists image_url text;
+alter table public.photo_order_items add column if not exists created_at timestamp with time zone default now();
+alter table public.photo_order_items add column if not exists order_id uuid references public.photo_orders(id) on delete cascade;
+alter table public.photo_order_items add column if not exists public_id text;
+alter table public.photo_order_items add column if not exists preview_url text;
+alter table public.photo_order_items add column if not exists full_url text;
+
+update public.photo_orders
+set
+  order_code = coalesce(order_code, code),
+  client_code = coalesce(client_code, customer_code),
+  selected_count = coalesce(selected_count, photo_count),
+  total_amount = coalesce(total_amount, total),
+  package_type = coalesce(package_type,
+    case
+      when photo_count = 1 then '1 FOTO'
+      when photo_count = 2 then '2 FOTOS'
+      when photo_count between 3 and 7 then '3 A 7 FOTOS'
+      when photo_count >= 8 then 'TODAS LAS FOTOS'
+      else 'FOTOS'
+    end
+  )
+where order_code is null
+   or client_code is null
+   or selected_count is null
+   or package_type is null;
+
+update public.photo_order_items
+set
+  photo_order_id = coalesce(photo_order_id, order_id),
+  image_url = coalesce(image_url, full_url, preview_url)
+where photo_order_id is null
+   or image_url is null;
+
+alter table public.photo_orders drop constraint if exists photo_orders_status_check;
+alter table public.photo_orders add constraint photo_orders_status_check
+  check (status in ('pending', 'processing', 'completed', 'paid', 'delivered', 'cancelled'));
+
+alter table public.photo_orders drop constraint if exists photo_orders_order_code_key;
+create unique index if not exists photo_orders_order_code_uidx on public.photo_orders(order_code);
+create index if not exists photo_orders_status_created_idx on public.photo_orders(status, created_at desc);
+create index if not exists photo_orders_client_created_idx on public.photo_orders(client_code, created_at desc);
+create index if not exists photo_order_items_photo_order_id_idx on public.photo_order_items(photo_order_id);
 
 alter table public.photo_orders enable row level security;
 alter table public.photo_order_items enable row level security;
@@ -52,6 +105,20 @@ begin
       on public.photo_orders
       for insert
       to anon, authenticated
+      with check (true);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'photo_orders'
+      and policyname = 'photo_orders_public_update'
+  ) then
+    create policy "photo_orders_public_update"
+      on public.photo_orders
+      for update
+      to anon, authenticated
+      using (true)
       with check (true);
   end if;
 
