@@ -149,7 +149,7 @@ export default function Fotos({ navigate, path = '' }) {
           <div className="photos-logo">Yaku<br />Park</div>
           <div className="photos-title-block">
             <h1>¡ELIGE TUS MEJORES MOMENTOS!</h1>
-            <p>Vista previa de tus fotos</p>
+            <p>Revive tu aventura en YakuPark</p>
           </div>
           <PhotoSearch code={code} setCode={setCode} loading={loading} onSubmit={submitSearch} />
         </header>
