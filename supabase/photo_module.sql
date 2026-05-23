@@ -16,6 +16,7 @@ create table if not exists public.photo_order_items (
   photo_order_id uuid references public.photo_orders(id) on delete cascade,
   photo_number integer,
   image_url text,
+  hd_url text,
   created_at timestamp with time zone default now()
 );
 
@@ -34,6 +35,7 @@ alter table public.photo_orders add column if not exists total numeric;
 alter table public.photo_order_items add column if not exists photo_order_id uuid references public.photo_orders(id) on delete cascade;
 alter table public.photo_order_items add column if not exists photo_number integer;
 alter table public.photo_order_items add column if not exists image_url text;
+alter table public.photo_order_items add column if not exists hd_url text;
 alter table public.photo_order_items add column if not exists created_at timestamp with time zone default now();
 alter table public.photo_order_items add column if not exists order_id uuid references public.photo_orders(id) on delete cascade;
 alter table public.photo_order_items add column if not exists public_id text;
@@ -63,9 +65,11 @@ where order_code is null
 update public.photo_order_items
 set
   photo_order_id = coalesce(photo_order_id, order_id),
-  image_url = coalesce(image_url, full_url, preview_url)
+  image_url = coalesce(image_url, full_url, preview_url),
+  hd_url = coalesce(hd_url, full_url, image_url, preview_url)
 where photo_order_id is null
-   or image_url is null;
+   or image_url is null
+   or hd_url is null;
 
 alter table public.photo_orders drop constraint if exists photo_orders_status_check;
 alter table public.photo_orders add constraint photo_orders_status_check

@@ -115,6 +115,7 @@ export default function Fotos({ navigate, path = '' }) {
         public_id: photo.publicId,
         photo_number: photo.number,
         image_url: photo.fullUrl,
+        hd_url: photo.fullUrl,
         full_url: photo.fullUrl,
         preview_url: photo.thumbUrl,
       }));
