@@ -9,7 +9,7 @@ const priceRows = [
 
 export default function PhotoPackagePanel({ totalPhotos, selectedCount, packageInfo, onSelectAll, onClear, onContinue }) {
   return (
-    <aside className="photo-package">
+    <aside className={`photo-package ${totalPhotos ? 'has-photos' : ''}`}>
       <div className="photo-price-title">PRECIOS</div>
       <div className="photo-price-list">
         {priceRows.map(([label, price, tone, badge]) => (
