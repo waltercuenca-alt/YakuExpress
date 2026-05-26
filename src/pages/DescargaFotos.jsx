@@ -67,8 +67,10 @@ export default function DescargaFotos({ path = '' }) {
     return (
       <main className="private-download-shell">
         <section className="private-download-card loading">
+          <span>YakuPark Adventure</span>
           <div className="private-download-spinner" />
-          <h1>Preparando tus fotos...</h1>
+          <h1>Preparando tus recuerdos...</h1>
+          <p>Estamos cargando tu galería privada en HD.</p>
         </section>
       </main>
     );
@@ -79,8 +81,9 @@ export default function DescargaFotos({ path = '' }) {
       <main className="private-download-shell">
         <section className="private-download-card locked">
           <span>YakuPark Adventure</span>
-          <h1>Descarga de fotos</h1>
+          <h1>Acceso a tus fotos</h1>
           <p>{message || 'Este pedido aun no esta habilitado para descarga.'}</p>
+          <p className="private-download-security">Este enlace muestra únicamente las fotos incluidas en tu pedido.</p>
           {order && <strong>{order.order_code}</strong>}
           {order && (
             <button type="button" onClick={loadPrivateOrder}>
@@ -95,13 +98,16 @@ export default function DescargaFotos({ path = '' }) {
   return (
     <main className="private-download-shell">
       <section className="private-download-card ready">
-        <span>Pago confirmado</span>
-        <h1>Tus fotos HD estan listas</h1>
-        <p>Descarga tus recuerdos seleccionados de YakuPark.</p>
+        <header className="private-download-header">
+          <span>Pago confirmado</span>
+          <h1>Tus recuerdos de Yakupark están listos</h1>
+          <p>Descarga tus fotos HD desde este enlace privado.</p>
+        </header>
         <div className="private-download-meta">
           <strong>{order.order_code}</strong>
           <small>{order.client_code} - {items.length} fotos</small>
         </div>
+        <p className="private-download-security">Este enlace muestra únicamente las fotos incluidas en tu pedido.</p>
         <div className="private-download-list">
           {items.map((item) => (
             <article className="private-download-item" key={item.id}>
