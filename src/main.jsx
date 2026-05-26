@@ -1060,12 +1060,24 @@ function Caja({ session, setSession }) {
 
   const updatePhotoOrderStatus = async (photoOrder, status) => {
     setPhotoOrdersMessage('');
+    setPhotoShareMessage('');
     try {
-      const { error } = await supabase
+      const updates = { status };
+      if (status === 'completed' && !photoOrder.download_token) {
+        updates.download_token = crypto.randomUUID();
+      }
+      const { data: updatedOrder, error } = await supabase
         .from('photo_orders')
-        .update({ status })
-        .eq('id', photoOrder.id);
+        .update(updates)
+        .eq('id', photoOrder.id)
+        .select('status, download_token')
+        .single();
       if (error) throw error;
+      setPhotoOrders((currentOrders) => currentOrders.map((currentOrder) => (
+        currentOrder.id === photoOrder.id
+          ? { ...currentOrder, ...updatedOrder }
+          : currentOrder
+      )));
       await loadPhotoOrders();
     } catch (error) {
       logCajaProError('caja.photoOrderStatus', error, { order: photoOrder.order_code, status });
