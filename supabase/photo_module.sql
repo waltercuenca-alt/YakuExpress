@@ -7,6 +7,8 @@ create table if not exists public.photo_orders (
   selected_count integer,
   package_type text,
   total_amount numeric not null default 0,
+  whatsapp_number text,
+  download_token uuid unique default gen_random_uuid(),
   status text not null default 'pending',
   created_at timestamp with time zone default now()
 );
@@ -25,6 +27,8 @@ alter table public.photo_orders add column if not exists client_code text;
 alter table public.photo_orders add column if not exists selected_count integer;
 alter table public.photo_orders add column if not exists package_type text;
 alter table public.photo_orders add column if not exists total_amount numeric not null default 0;
+alter table public.photo_orders add column if not exists whatsapp_number text;
+alter table public.photo_orders add column if not exists download_token uuid default gen_random_uuid();
 alter table public.photo_orders add column if not exists status text not null default 'pending';
 alter table public.photo_orders add column if not exists created_at timestamp with time zone default now();
 alter table public.photo_orders add column if not exists code text;
@@ -62,6 +66,10 @@ where order_code is null
    or selected_count is null
    or package_type is null;
 
+update public.photo_orders
+set download_token = gen_random_uuid()
+where download_token is null;
+
 update public.photo_order_items
 set
   photo_order_id = coalesce(photo_order_id, order_id),
@@ -77,6 +85,7 @@ alter table public.photo_orders add constraint photo_orders_status_check
 
 alter table public.photo_orders drop constraint if exists photo_orders_order_code_key;
 create unique index if not exists photo_orders_order_code_uidx on public.photo_orders(order_code);
+create unique index if not exists photo_orders_download_token_uidx on public.photo_orders(download_token);
 create index if not exists photo_orders_status_created_idx on public.photo_orders(status, created_at desc);
 create index if not exists photo_orders_client_created_idx on public.photo_orders(client_code, created_at desc);
 create index if not exists photo_order_items_photo_order_id_idx on public.photo_order_items(photo_order_id);
@@ -155,3 +164,63 @@ end $$;
 
 grant select, insert, update on public.photo_orders to anon, authenticated;
 grant select, insert on public.photo_order_items to anon, authenticated;
+
+create or replace function public.get_paid_photo_download(p_token uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_order public.photo_orders%rowtype;
+begin
+  select *
+    into v_order
+    from public.photo_orders
+   where download_token = p_token;
+
+  if not found then
+    return null;
+  end if;
+
+  if v_order.status <> 'completed' then
+    return jsonb_build_object(
+      'enabled', false,
+      'order_code', v_order.order_code,
+      'status', v_order.status
+    );
+  end if;
+
+  return jsonb_build_object(
+    'enabled', true,
+    'order', jsonb_build_object(
+      'id', v_order.id,
+      'order_code', v_order.order_code,
+      'client_code', v_order.client_code,
+      'selected_count', v_order.selected_count,
+      'package_type', v_order.package_type,
+      'total_amount', v_order.total_amount,
+      'status', v_order.status
+    ),
+    'items', (
+      select coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'id', item.id,
+            'photo_number', item.photo_number,
+            'image_url', item.image_url,
+            'hd_url', coalesce(item.hd_url, item.image_url)
+          )
+          order by item.photo_number
+        ),
+        '[]'::jsonb
+      )
+        from public.photo_order_items item
+       where item.photo_order_id = v_order.id
+    )
+  );
+end;
+$$;
+
+revoke all on function public.get_paid_photo_download(uuid) from public;
+grant execute on function public.get_paid_photo_download(uuid) to anon, authenticated;

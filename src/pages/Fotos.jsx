@@ -83,7 +83,7 @@ export default function Fotos({ navigate, path = '' }) {
   const selectAll = () => setSelectedIds(photos.map((photo) => photo.id));
   const clearSelection = () => setSelectedIds([]);
 
-  const createPhotoOrder = async () => {
+  const createPhotoOrder = async (whatsappNumber) => {
     if (!searchedCode || !selectedPhotos.length) return;
 
     setCreatingOrder(true);
@@ -102,6 +102,7 @@ export default function Fotos({ navigate, path = '' }) {
           package_type: packageInfo.type,
           total_amount: packageInfo.total,
           total: packageInfo.total,
+          whatsapp_number: whatsappNumber,
           status: 'pending',
         })
         .select()
@@ -127,6 +128,7 @@ export default function Fotos({ navigate, path = '' }) {
         ...order,
         order_code: orderCode,
         client_code: searchedCode,
+        whatsapp_number: whatsappNumber,
         items: selectedPhotos,
         total_amount: packageInfo.total,
       });

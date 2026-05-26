@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { supabase, syncOrderToSheets } from './supabase.js';
 import Tienda from './pages/Tienda.jsx';
 import Fotos from './pages/Fotos.jsx';
+import DescargaFotos from './pages/DescargaFotos.jsx';
 import './styles.css';
 
 const products = [
@@ -99,6 +100,7 @@ function App() {
   if (path.startsWith('/marketing')) return <StaffPanel mode="marketing" navigate={navigate} />;
   if (path.startsWith('/tienda')) return <Tienda navigate={navigate} />;
   if (path.startsWith('/fotos')) return <Fotos navigate={navigate} path={path} />;
+  if (path.startsWith('/descarga')) return <DescargaFotos path={path} />;
   return <ClientFlow navigate={navigate} />;
 }
 
@@ -754,6 +756,7 @@ function Caja({ session, setSession }) {
   const [todayMessage, setTodayMessage] = useState('');
   const [summaryMessage, setSummaryMessage] = useState('');
   const [photoOrdersMessage, setPhotoOrdersMessage] = useState('');
+  const [photoShareMessage, setPhotoShareMessage] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const audioContextRef = useRef(null);
@@ -897,8 +900,8 @@ function Caja({ session, setSession }) {
     try {
       const { data: ordersData, error: ordersError } = await supabase
         .from('photo_orders')
-        .select('id, order_code, client_code, selected_count, package_type, total_amount, status, created_at')
-        .in('status', ['pending', 'processing'])
+        .select('id, order_code, client_code, selected_count, package_type, total_amount, whatsapp_number, download_token, status, created_at')
+        .in('status', ['pending', 'processing', 'completed'])
         .order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
       const basePhotoOrders = Array.isArray(ordersData) ? ordersData.filter(Boolean) : [];
@@ -1070,6 +1073,40 @@ function Caja({ session, setSession }) {
     }
   };
 
+  const photoDownloadUrl = (photoOrder) => (
+    photoOrder.download_token
+      ? `${location.origin}${withBasePath(`/descarga/${photoOrder.download_token}`)}`
+      : ''
+  );
+
+  const copyPhotoDownloadLink = async (photoOrder) => {
+    const url = photoDownloadUrl(photoOrder);
+    if (!url) {
+      setPhotoShareMessage('Falta generar el token privado del pedido. Ejecuta la actualizacion SQL de fotos.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setPhotoShareMessage(`Link copiado para ${photoOrder.order_code}.`);
+    } catch (error) {
+      logCajaProError('caja.photoCopyLink', error, { order: photoOrder.order_code });
+      setPhotoShareMessage(`No pudimos copiar el link. Link: ${url}`);
+    }
+  };
+
+  const sharePhotoOrderByWhatsapp = (photoOrder) => {
+    const url = photoDownloadUrl(photoOrder);
+    if (!url) {
+      setPhotoShareMessage('Falta generar el token privado del pedido. Ejecuta la actualizacion SQL de fotos.');
+      return;
+    }
+    const message = `Hola, gracias por vivir la experiencia Yakupark. Tu pago fue confirmado y tus fotos HD ya estan listas. Puedes descargarlas aqui: ${url}`;
+    const phone = String(photoOrder.whatsapp_number || '').replace(/\D/g, '');
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    setPhotoShareMessage(`WhatsApp preparado para ${photoOrder.order_code}.`);
+  };
+
   useEffect(() => {
     const channel = supabase
       .channel('photo-orders-cashier')
@@ -1234,6 +1271,7 @@ function Caja({ session, setSession }) {
           {photoOrders.some((order) => order.status === 'pending') && <span className="photo-orders-badge">Nuevo</span>}
         </div>
         {photoOrdersMessage && <p className={photoOrdersMessage.startsWith('Error') ? 'error' : 'soft'}>{photoOrdersMessage}</p>}
+        {photoShareMessage && <p className="photo-share-message">{photoShareMessage}</p>}
         {photoOrders.length ? (
           <div className="photo-orders-grid">
             {photoOrders.map((photoOrder) => {
@@ -1257,6 +1295,14 @@ function Caja({ session, setSession }) {
                     <span>Fotos elegidas</span>
                     <strong>{items.length ? items.map((item) => `#${item.photo_number}`).join(' ') : '-'}</strong>
                   </div>
+                  {photoOrder.status === 'completed' && photoOrder.download_token && (
+                    <div className="photo-order-download-link">
+                      <span>Link privado de descarga</span>
+                      <a href={photoDownloadUrl(photoOrder)} target="_blank" rel="noopener noreferrer">
+                        {photoDownloadUrl(photoOrder)}
+                      </a>
+                    </div>
+                  )}
                   <div className="photo-order-actions">
                     {photoOrder.status === 'pending' && (
                       <button type="button" onClick={() => updatePhotoOrderStatus(photoOrder, 'processing')}>
@@ -1267,6 +1313,16 @@ function Caja({ session, setSession }) {
                       <button type="button" onClick={() => updatePhotoOrderStatus(photoOrder, 'completed')}>
                         Marcar entregado
                       </button>
+                    )}
+                    {photoOrder.status === 'completed' && (
+                      <>
+                        <button type="button" className="share-link" onClick={() => copyPhotoDownloadLink(photoOrder)}>
+                          Copiar link
+                        </button>
+                        <button type="button" className="share-whatsapp" onClick={() => sharePhotoOrderByWhatsapp(photoOrder)}>
+                          Enviar WhatsApp
+                        </button>
+                      </>
                     )}
                   </div>
                 </article>

@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function PhotoSummaryModal({ customerCode, photos, packageInfo, creating, error, onClose, onConfirm }) {
+  const [whatsapp, setWhatsapp] = useState('');
+  const normalizedWhatsapp = whatsapp.replace(/\D/g, '');
+
   return (
     <div className="photo-summary-backdrop" role="dialog" aria-modal="true" aria-label="Resumen del pedido">
       <section className="photo-summary-modal">
@@ -21,8 +24,18 @@ export default function PhotoSummaryModal({ customerCode, photos, packageInfo, c
             <strong>{packageInfo.displayTotal}</strong>
           </div>
         </div>
+        <label className="photo-whatsapp-field">
+          <span>WhatsApp para recibir tu link privado</span>
+          <input
+            type="tel"
+            inputMode="tel"
+            value={whatsapp}
+            onChange={(event) => setWhatsapp(event.target.value)}
+            placeholder="Ejemplo: 51987654321"
+          />
+        </label>
         {error && <p className="photo-summary-error">{error}</p>}
-        <button className="photo-confirm-button" type="button" onClick={onConfirm} disabled={creating}>
+        <button className="photo-confirm-button" type="button" onClick={() => onConfirm(normalizedWhatsapp)} disabled={creating || normalizedWhatsapp.length < 8}>
           {creating ? 'Generando pedido...' : 'Generar codigo de compra'}
         </button>
       </section>
