@@ -900,8 +900,9 @@ function Caja({ session, setSession }) {
     try {
       const { data: ordersData, error: ordersError } = await supabase
         .from('photo_orders')
-        .select('id, order_code, client_code, selected_count, package_type, total_amount, whatsapp_number, download_token, status, created_at')
+        .select('id, order_code, client_code, selected_count, package_type, total_amount, whatsapp_number, download_token, hidden_from_cashier, status, created_at')
         .in('status', ['pending', 'processing', 'completed'])
+        .eq('hidden_from_cashier', false)
         .order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
       const basePhotoOrders = Array.isArray(ordersData) ? ordersData.filter(Boolean) : [];
@@ -1090,6 +1091,23 @@ function Caja({ session, setSession }) {
       ? `${location.origin}${withBasePath(`/descarga/${photoOrder.download_token}`)}`
       : ''
   );
+
+  const hidePhotoOrderFromCashier = async (photoOrder) => {
+    if (!window.confirm('\u00bfOcultar este pedido de la lista?')) return;
+    setPhotoOrdersMessage('');
+    setPhotoShareMessage('');
+    try {
+      const { error } = await supabase
+        .from('photo_orders')
+        .update({ hidden_from_cashier: true })
+        .eq('id', photoOrder.id);
+      if (error) throw error;
+      setPhotoOrders((currentOrders) => currentOrders.filter((currentOrder) => currentOrder.id !== photoOrder.id));
+    } catch (error) {
+      logCajaProError('caja.photoOrderHide', error, { order: photoOrder.order_code });
+      setPhotoOrdersMessage(`Error al ocultar ${photoOrder.order_code}: ${formatSupabaseError(error)}`);
+    }
+  };
 
   const copyPhotoDownloadLink = async (photoOrder) => {
     const url = photoDownloadUrl(photoOrder);
@@ -1290,6 +1308,15 @@ function Caja({ session, setSession }) {
               const items = Array.isArray(photoOrder.photo_order_items) ? photoOrder.photo_order_items : [];
               return (
                 <article key={photoOrder.id} className={`photo-order-card ${photoOrder.status}`}>
+                  <button
+                    type="button"
+                    className="photo-order-hide"
+                    aria-label={`Ocultar pedido ${photoOrder.order_code}`}
+                    title="Quitar de la lista"
+                    onClick={() => hidePhotoOrderFromCashier(photoOrder)}
+                  >
+                    X
+                  </button>
                   <div className="photo-order-head">
                     <div>
                       <span>Codigo</span>

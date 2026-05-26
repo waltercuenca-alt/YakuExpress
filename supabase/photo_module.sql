@@ -9,6 +9,7 @@ create table if not exists public.photo_orders (
   total_amount numeric not null default 0,
   whatsapp_number text,
   download_token uuid unique default gen_random_uuid(),
+  hidden_from_cashier boolean not null default false,
   status text not null default 'pending',
   created_at timestamp with time zone default now()
 );
@@ -29,6 +30,7 @@ alter table public.photo_orders add column if not exists package_type text;
 alter table public.photo_orders add column if not exists total_amount numeric not null default 0;
 alter table public.photo_orders add column if not exists whatsapp_number text;
 alter table public.photo_orders add column if not exists download_token uuid default gen_random_uuid();
+alter table public.photo_orders add column if not exists hidden_from_cashier boolean not null default false;
 alter table public.photo_orders add column if not exists status text not null default 'pending';
 alter table public.photo_orders add column if not exists created_at timestamp with time zone default now();
 alter table public.photo_orders add column if not exists code text;
@@ -88,6 +90,7 @@ create unique index if not exists photo_orders_order_code_uidx on public.photo_o
 create unique index if not exists photo_orders_download_token_uidx on public.photo_orders(download_token);
 create index if not exists photo_orders_status_created_idx on public.photo_orders(status, created_at desc);
 create index if not exists photo_orders_client_created_idx on public.photo_orders(client_code, created_at desc);
+create index if not exists photo_orders_cashier_visible_created_idx on public.photo_orders(hidden_from_cashier, status, created_at desc);
 create index if not exists photo_order_items_photo_order_id_idx on public.photo_order_items(photo_order_id);
 
 alter table public.photo_orders enable row level security;
