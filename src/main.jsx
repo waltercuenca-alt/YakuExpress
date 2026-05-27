@@ -757,6 +757,7 @@ function Caja({ session, setSession }) {
   const [summaryMessage, setSummaryMessage] = useState('');
   const [photoOrdersMessage, setPhotoOrdersMessage] = useState('');
   const [photoShareMessage, setPhotoShareMessage] = useState('');
+  const [showHiddenPhotoOrders, setShowHiddenPhotoOrders] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const audioContextRef = useRef(null);
@@ -765,6 +766,7 @@ function Caja({ session, setSession }) {
   const knownOrderStatusesRef = useRef(new Map());
   const knownPhotoOrderIdsRef = useRef(new Set());
   const didPrimePhotoOrdersRef = useRef(false);
+  const showHiddenPhotoOrdersRef = useRef(false);
   const playedSoundEventsRef = useRef(new Set());
   const didPrimeOrderStatusRef = useRef(false);
   const sortedTodayOrders = useMemo(() => sortOrdersByPriority(todayOrders, now), [todayOrders, now]);
@@ -896,16 +898,18 @@ function Caja({ session, setSession }) {
     }
   };
 
-  const loadPhotoOrders = async () => {
+  const loadPhotoOrders = async (hiddenFromCashier = showHiddenPhotoOrdersRef.current) => {
     try {
       const { data: ordersData, error: ordersError } = await supabase
         .from('photo_orders')
         .select('id, order_code, client_code, selected_count, package_type, total_amount, whatsapp_number, download_token, hidden_from_cashier, status, created_at')
         .in('status', ['pending', 'processing', 'completed'])
-        .eq('hidden_from_cashier', false)
+        .eq('hidden_from_cashier', hiddenFromCashier)
         .order('created_at', { ascending: false });
       if (ordersError) throw ordersError;
-      const basePhotoOrders = Array.isArray(ordersData) ? ordersData.filter(Boolean) : [];
+      const basePhotoOrders = await Promise.all(
+        (Array.isArray(ordersData) ? ordersData.filter(Boolean) : []).map(ensurePhotoOrderDownloadToken),
+      );
       const orderIds = basePhotoOrders.map((order) => order.id).filter(Boolean);
       let itemsByOrder = {};
       if (orderIds.length) {
@@ -925,9 +929,11 @@ function Caja({ session, setSession }) {
         ...order,
         photo_order_items: itemsByOrder[order.id] || [],
       }));
-      primeAndPlayPhotoOrderEvents(nextPhotoOrders);
+      if (!hiddenFromCashier) primeAndPlayPhotoOrderEvents(nextPhotoOrders);
       setPhotoOrders(nextPhotoOrders);
-      setPhotoOrdersMessage(nextPhotoOrders.length ? '' : 'Sin pedidos de fotos por ahora.');
+      setPhotoOrdersMessage(nextPhotoOrders.length ? '' : (
+        hiddenFromCashier ? 'No hay pedidos ocultos en el historial.' : 'Sin pedidos de fotos por ahora.'
+      ));
     } catch (error) {
       logCajaProError('caja.photoOrders', error);
       setPhotoOrders([]);
@@ -1092,6 +1098,26 @@ function Caja({ session, setSession }) {
       : ''
   );
 
+  const ensurePhotoOrderDownloadToken = async (photoOrder) => {
+    if (photoOrder.status !== 'completed' || photoOrder.download_token) return photoOrder;
+    const { data: updatedOrder, error } = await supabase
+      .from('photo_orders')
+      .update({ download_token: crypto.randomUUID() })
+      .eq('id', photoOrder.id)
+      .select('download_token')
+      .single();
+    if (error) throw error;
+    return { ...photoOrder, ...updatedOrder };
+  };
+
+  const viewPhotoOrders = async (showHidden) => {
+    showHiddenPhotoOrdersRef.current = showHidden;
+    setShowHiddenPhotoOrders(showHidden);
+    setPhotoOrdersMessage('');
+    setPhotoShareMessage('');
+    await loadPhotoOrders(showHidden);
+  };
+
   const hidePhotoOrderFromCashier = async (photoOrder) => {
     if (!window.confirm('\u00bfOcultar este pedido de la lista?')) return;
     setPhotoOrdersMessage('');
@@ -1106,6 +1132,23 @@ function Caja({ session, setSession }) {
     } catch (error) {
       logCajaProError('caja.photoOrderHide', error, { order: photoOrder.order_code });
       setPhotoOrdersMessage(`Error al ocultar ${photoOrder.order_code}: ${formatSupabaseError(error)}`);
+    }
+  };
+
+  const restorePhotoOrderToCashier = async (photoOrder) => {
+    setPhotoOrdersMessage('');
+    setPhotoShareMessage('');
+    try {
+      const { error } = await supabase
+        .from('photo_orders')
+        .update({ hidden_from_cashier: false })
+        .eq('id', photoOrder.id);
+      if (error) throw error;
+      setPhotoOrders((currentOrders) => currentOrders.filter((currentOrder) => currentOrder.id !== photoOrder.id));
+      setPhotoOrdersMessage(`${photoOrder.order_code} fue restaurado a pedidos activos.`);
+    } catch (error) {
+      logCajaProError('caja.photoOrderRestore', error, { order: photoOrder.order_code });
+      setPhotoOrdersMessage(`Error al restaurar ${photoOrder.order_code}: ${formatSupabaseError(error)}`);
     }
   };
 
@@ -1296,9 +1339,14 @@ function Caja({ session, setSession }) {
         <div className="staff-head">
           <div>
             <h2>Pedidos de Fotos</h2>
-            <small>{photoOrders.length ? 'NUEVO PEDIDO DE FOTOS' : 'Modulo de fotos conectado'}</small>
+            <small>{showHiddenPhotoOrders ? 'Historial de pedidos ocultos' : (photoOrders.length ? 'NUEVO PEDIDO DE FOTOS' : 'Modulo de fotos conectado')}</small>
           </div>
-          {photoOrders.some((order) => order.status === 'pending') && <span className="photo-orders-badge">Nuevo</span>}
+          <div className="photo-orders-view-actions">
+            {!showHiddenPhotoOrders && photoOrders.some((order) => order.status === 'pending') && <span className="photo-orders-badge">Nuevo</span>}
+            <button type="button" onClick={() => viewPhotoOrders(!showHiddenPhotoOrders)}>
+              {showHiddenPhotoOrders ? 'Ver pedidos activos' : 'Ver historial'}
+            </button>
+          </div>
         </div>
         {photoOrdersMessage && <p className={photoOrdersMessage.startsWith('Error') ? 'error' : 'soft'}>{photoOrdersMessage}</p>}
         {photoShareMessage && <p className="photo-share-message">{photoShareMessage}</p>}
@@ -1308,15 +1356,17 @@ function Caja({ session, setSession }) {
               const items = Array.isArray(photoOrder.photo_order_items) ? photoOrder.photo_order_items : [];
               return (
                 <article key={photoOrder.id} className={`photo-order-card ${photoOrder.status}`}>
-                  <button
-                    type="button"
-                    className="photo-order-hide"
-                    aria-label={`Ocultar pedido ${photoOrder.order_code}`}
-                    title="Quitar de la lista"
-                    onClick={() => hidePhotoOrderFromCashier(photoOrder)}
-                  >
-                    X
-                  </button>
+                  {!showHiddenPhotoOrders && (
+                    <button
+                      type="button"
+                      className="photo-order-hide"
+                      aria-label={`Ocultar pedido ${photoOrder.order_code}`}
+                      title="Quitar de la lista"
+                      onClick={() => hidePhotoOrderFromCashier(photoOrder)}
+                    >
+                      X
+                    </button>
+                  )}
                   <div className="photo-order-head">
                     <div>
                       <span>Codigo</span>
@@ -1329,6 +1379,8 @@ function Caja({ session, setSession }) {
                     <span>Pack: <b>{photoOrder.package_type}</b></span>
                     <span>Cantidad: <b>{photoOrder.selected_count} fotos</b></span>
                     <span>Monto: <b>{formatPhotoMoney(photoOrder.total_amount)}</b></span>
+                    {showHiddenPhotoOrders && <span>WhatsApp: <b>{photoOrder.whatsapp_number || '-'}</b></span>}
+                    {showHiddenPhotoOrders && <span>Fecha: <b>{formatDate(photoOrder.created_at)}</b></span>}
                   </div>
                   <div className="photo-order-selected">
                     <span>Fotos elegidas</span>
@@ -1362,6 +1414,11 @@ function Caja({ session, setSession }) {
                           Enviar WhatsApp
                         </button>
                       </>
+                    )}
+                    {showHiddenPhotoOrders && (
+                      <button type="button" className="restore-order" onClick={() => restorePhotoOrderToCashier(photoOrder)}>
+                        Restaurar
+                      </button>
                     )}
                   </div>
                 </article>
