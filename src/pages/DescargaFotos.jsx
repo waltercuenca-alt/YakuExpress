@@ -7,6 +7,9 @@ export default function DescargaFotos({ path = '' }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState('');
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
+  const [bulkWarning, setBulkWarning] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -16,6 +19,8 @@ export default function DescargaFotos({ path = '' }) {
   const loadPrivateOrder = async () => {
     setLoading(true);
     setMessage('');
+    setBulkMessage('');
+    setBulkWarning(false);
     setItems([]);
     if (!isValidToken(token)) {
       setOrder(null);
@@ -63,6 +68,33 @@ export default function DescargaFotos({ path = '' }) {
     }
   };
 
+  const handleDownloadAll = async () => {
+    if (!items.length || downloadingAll) return;
+    setMessage('');
+    setBulkWarning(false);
+    setBulkMessage('Preparando descargas...');
+    setDownloadingAll(true);
+    let failedDownloads = 0;
+    for (const item of items) {
+      try {
+        await downloadPhoto(item, order.client_code);
+      } catch (error) {
+        failedDownloads += 1;
+        console.error('YakuExpress descarga privada multiple error:', error);
+      }
+      if (items.length > 1) await waitForDownload(240);
+    }
+    setDownloadingAll(false);
+    if (failedDownloads) {
+      setBulkWarning(true);
+      setBulkMessage(failedDownloads === items.length
+        ? 'No pudimos iniciar las descargas. Proba descargar cada foto.'
+        : 'Descargas iniciadas. Una o mas fotos no pudieron prepararse.');
+      return;
+    }
+    setBulkMessage('Descargas iniciadas.');
+  };
+
   if (loading) {
     return (
       <main className="private-download-shell">
@@ -108,13 +140,23 @@ export default function DescargaFotos({ path = '' }) {
           <small>{order.client_code} - {items.length} fotos</small>
         </div>
         <p className="private-download-security">Este enlace muestra únicamente las fotos incluidas en tu pedido.</p>
+        <div className="private-download-bulk">
+          <button type="button" onClick={handleDownloadAll} disabled={downloadingAll || !items.length}>
+            {downloadingAll ? 'Preparando descargas...' : 'Descargar todas'}
+          </button>
+          {bulkMessage && (
+            <p className={`private-download-bulk-message ${bulkWarning ? 'warning' : ''}`} aria-live="polite">
+              {bulkMessage}
+            </p>
+          )}
+        </div>
         <div className="private-download-list">
           {items.map((item) => (
             <article className="private-download-item" key={item.id}>
               <img src={item.image_url || item.hd_url} alt={`Foto ${item.photo_number} seleccionada`} />
               <div>
                 <strong>Foto #{item.photo_number}</strong>
-                <button type="button" onClick={() => downloadItem(item)} disabled={downloadingId === item.id}>
+                <button type="button" onClick={() => downloadItem(item)} disabled={downloadingId === item.id || downloadingAll}>
                   {downloadingId === item.id ? 'Descargando...' : 'Descargar HD'}
                 </button>
               </div>
@@ -141,6 +183,10 @@ async function downloadPhoto(item, clientCode) {
   link.click();
   link.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+function waitForDownload(delay) {
+  return new Promise((resolve) => window.setTimeout(resolve, delay));
 }
 
 function isValidToken(token) {

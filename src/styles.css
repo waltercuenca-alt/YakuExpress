@@ -1788,6 +1788,30 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   background: #00bfb3;
   box-shadow: 0 0 0 4px rgba(0, 191, 179, .12);
 }
+.private-download-bulk {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.private-download-bulk button {
+  min-width: min(250px, 100%);
+  min-height: 54px;
+  background: linear-gradient(135deg, #003c7c, #00a7e1);
+  font-size: 1rem;
+}
+.private-download-bulk-message {
+  flex: 1 1 220px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #087a68 !important;
+  background: #dcfbef;
+  font-size: .9rem;
+}
+.private-download-bulk-message.warning {
+  color: #8a4b00 !important;
+  background: #fff2b8;
+}
 .private-download-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
@@ -1990,6 +2014,8 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .photo-downloads-head, .photo-download-card { align-items: stretch; flex-direction: column; }
   .private-download-shell { align-items: start; padding: 10px; }
   .private-download-card { margin-top: 10px; border-radius: 21px; padding: 17px; }
+  .private-download-bulk { display: grid; gap: 8px; }
+  .private-download-bulk button { width: 100%; min-height: 52px; }
   .private-download-list { grid-template-columns: 1fr; gap: 12px; }
   .private-download-item { grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; }
   .private-download-item img { height: 92px; aspect-ratio: auto; }
