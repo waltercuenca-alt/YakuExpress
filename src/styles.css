@@ -896,7 +896,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   object-fit: cover;
   border-radius: 16px 16px 0 0;
 }
-.photo-preview span {
+.photo-preview-number {
   position: absolute;
   top: -12px;
   left: -12px;
@@ -912,6 +912,44 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   font-size: 1.45rem;
   font-weight: 950;
   box-shadow: 0 8px 18px rgba(0,0,0,.25);
+}
+.photo-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  gap: 5px;
+  padding: 0 !important;
+  color: rgba(255, 255, 255, .86) !important;
+  background: linear-gradient(135deg, transparent 34%, rgba(0, 33, 74, .2) 34%, rgba(0, 33, 74, .2) 66%, transparent 66%);
+  pointer-events: none;
+  transform: none !important;
+}
+.photo-watermark b {
+  display: block;
+  border: 1px solid rgba(255, 255, 255, .48);
+  border-radius: 999px;
+  padding: 7px 13px;
+  background: rgba(0, 38, 79, .3);
+  font-size: clamp(.72rem, 2vw, .94rem);
+  font-weight: 950;
+  letter-spacing: .06em;
+  line-height: 1;
+  text-transform: uppercase;
+  transform: rotate(-14deg);
+  text-shadow: 0 1px 5px rgba(0, 20, 52, .6);
+}
+.photo-watermark small {
+  justify-self: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(0, 38, 79, .26);
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  transform: rotate(-14deg);
 }
 .photo-select {
   display: flex;
@@ -1177,16 +1215,30 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   background: rgba(0, 28, 52, .82);
   backdrop-filter: blur(10px);
 }
-.photo-lightbox img {
+.photo-lightbox-preview {
+  position: relative;
+  display: grid;
+  max-width: min(1100px, 94vw);
+  max-height: 82vh;
+}
+.photo-lightbox-preview img {
+  display: block;
   max-width: min(1100px, 94vw);
   max-height: 82vh;
   border-radius: 22px;
   box-shadow: 0 26px 80px rgba(0,0,0,.35);
 }
-.photo-lightbox span {
+.photo-lightbox-caption {
   margin-top: 12px;
   color: #fff;
   font-weight: 950;
+}
+.photo-lightbox-preview .photo-watermark b {
+  padding: 12px 22px;
+  font-size: clamp(.9rem, 3vw, 1.5rem);
+}
+.photo-lightbox-preview .photo-watermark small {
+  font-size: clamp(.7rem, 1.5vw, .92rem);
 }
 .photo-lightbox-close {
   position: fixed;
@@ -1999,7 +2051,9 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .photos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 4px; }
   .photo-card { border-width: 3px; border-radius: 15px; min-width: 0; overflow: hidden; }
   .photo-preview img { aspect-ratio: 4 / 4.8; border-radius: 12px 12px 0 0; }
-  .photo-preview span { width: 35px; height: 35px; top: 6px; left: 6px; font-size: .9rem; border-width: 2px; }
+  .photo-preview-number { width: 35px; height: 35px; top: 6px; left: 6px; font-size: .9rem; border-width: 2px; }
+  .photo-preview .photo-watermark b { padding: 6px 8px; font-size: .58rem; }
+  .photo-preview .photo-watermark small { padding: 3px 6px; font-size: .51rem; }
   .photo-select { min-height: 48px; padding: 8px 6px; gap: 6px; font-size: .74rem; line-height: 1.15; }
   .photo-select span { min-width: 0; overflow-wrap: anywhere; }
   .photo-select input { width: 25px; height: 25px; border-radius: 7px; border-width: 2px; flex: 0 0 auto; }
@@ -2033,7 +2087,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .photos-empty, .photos-loading { min-height: 230px; padding: 12px; }
   .photos-empty button { min-height: 48px; }
   .photo-lightbox { padding: 54px 10px 22px; }
-  .photo-lightbox img { max-width: 100%; max-height: calc(100vh - 108px); border-radius: 15px; }
+  .photo-lightbox-preview, .photo-lightbox-preview img { max-width: 100%; max-height: calc(100vh - 108px); border-radius: 15px; }
   .photo-lightbox-close { top: 10px; right: 10px; }
   .photo-summary-modal, .photo-success { width: 100%; box-sizing: border-box; border-radius: 18px; padding: 16px; }
   .photo-success { margin-top: 0; }

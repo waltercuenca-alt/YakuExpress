@@ -6,8 +6,14 @@ export default function PhotoLightbox({ photo, onClose }) {
       <button className="photo-lightbox-close" type="button" onClick={onClose} aria-label="Cerrar vista ampliada">
         <span aria-hidden="true">×</span>
       </button>
-      <img src={photo.fullUrl} alt={`Foto ${photo.number} ampliada`} />
-      <span>Foto #{photo.number}</span>
+      <div className="photo-lightbox-preview">
+        <img src={photo.fullUrl} alt={`Foto ${photo.number} ampliada`} />
+        <span className="photo-watermark" aria-hidden="true">
+          <b>YakuExpress Preview</b>
+          <small>Foto protegida</small>
+        </span>
+      </div>
+      <span className="photo-lightbox-caption">Foto #{photo.number}</span>
     </div>
   );
 }
