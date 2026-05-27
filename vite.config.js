@@ -1,3 +1,5 @@
+const isGitHubPagesBuild = process.env.GITHUB_PAGES === 'true' && !process.env.VERCEL;
+
 export default {
-  base: process.env.GITHUB_PAGES === 'true' ? '/YakuExpress/' : '/',
+  base: isGitHubPagesBuild ? '/YakuExpress/' : '/',
 };
