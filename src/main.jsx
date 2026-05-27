@@ -4,7 +4,7 @@ import { supabase, syncOrderToSheets } from './supabase.js';
 import Tienda from './pages/Tienda.jsx';
 import Fotos from './pages/Fotos.jsx';
 import DescargaFotos from './pages/DescargaFotos.jsx';
-import { getWatermarkEnabled, setWatermarkEnabled } from './watermarkConfig.js';
+import { getWatermarkEnabled, loadGlobalWatermarkEnabled, saveGlobalWatermarkEnabled } from './watermarkConfig.js';
 import './styles.css';
 
 const products = [
@@ -760,6 +760,7 @@ function Caja({ session, setSession }) {
   const [photoShareMessage, setPhotoShareMessage] = useState('');
   const [showHiddenPhotoOrders, setShowHiddenPhotoOrders] = useState(false);
   const [watermarkPreviewEnabled, setWatermarkPreviewEnabled] = useState(getWatermarkEnabled);
+  const [watermarkSyncStatus, setWatermarkSyncStatus] = useState('Consultando configuracion global...');
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const audioContextRef = useRef(null);
@@ -811,6 +812,20 @@ function Caja({ session, setSession }) {
   useEffect(() => {
     audioUnlockedRef.current = audioUnlocked;
   }, [audioUnlocked]);
+
+  useEffect(() => {
+    let active = true;
+    void loadGlobalWatermarkEnabled().then(({ enabled, source }) => {
+      if (!active) return;
+      setWatermarkPreviewEnabled(enabled);
+      setWatermarkSyncStatus(source === 'global'
+        ? 'Configuracion global cargada'
+        : 'Usando configuracion local temporal');
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const unlockCashierAudio = async () => {
     try {
@@ -1182,10 +1197,14 @@ function Caja({ session, setSession }) {
     setPhotoShareMessage(`WhatsApp preparado para ${photoOrder.order_code}.`);
   };
 
-  const toggleWatermarkPreview = () => {
+  const toggleWatermarkPreview = async () => {
     const nextValue = !watermarkPreviewEnabled;
-    setWatermarkEnabled(nextValue);
     setWatermarkPreviewEnabled(nextValue);
+    setWatermarkSyncStatus('Guardando configuracion...');
+    const { source } = await saveGlobalWatermarkEnabled(nextValue);
+    setWatermarkSyncStatus(source === 'global'
+      ? 'Configuracion global guardada'
+      : 'Usando configuracion local temporal');
   };
 
   useEffect(() => {
@@ -1453,6 +1472,7 @@ function Caja({ session, setSession }) {
             <i aria-hidden="true" />
           </button>
           <strong>{watermarkPreviewEnabled ? 'Activada' : 'Desactivada'}</strong>
+          <small>{watermarkSyncStatus}</small>
         </div>
       </section>
       <section className="panel staff">

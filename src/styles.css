@@ -1754,6 +1754,13 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   color: #567582;
   font-size: .82rem;
 }
+.watermark-control small {
+  grid-column: 1 / -1;
+  color: #4b6d7b;
+  font-size: .74rem;
+  font-weight: 850;
+  text-align: right;
+}
 .watermark-control.active {
   border-color: #9ee8df;
   background: #e9fbf8;

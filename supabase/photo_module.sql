@@ -1,5 +1,15 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.app_settings (
+  key text primary key,
+  value jsonb not null,
+  updated_at timestamp with time zone not null default now()
+);
+
+insert into public.app_settings (key, value)
+values ('watermark_enabled', 'true'::jsonb)
+on conflict (key) do nothing;
+
 create table if not exists public.photo_orders (
   id uuid primary key default gen_random_uuid(),
   order_code text unique,
@@ -95,9 +105,50 @@ create index if not exists photo_order_items_photo_order_id_idx on public.photo_
 
 alter table public.photo_orders enable row level security;
 alter table public.photo_order_items enable row level security;
+alter table public.app_settings enable row level security;
 
 do $$
 begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'app_settings'
+      and policyname = 'app_settings_public_select'
+  ) then
+    create policy "app_settings_public_select"
+      on public.app_settings
+      for select
+      to anon, authenticated
+      using (true);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'app_settings'
+      and policyname = 'app_settings_public_insert'
+  ) then
+    create policy "app_settings_public_insert"
+      on public.app_settings
+      for insert
+      to anon, authenticated
+      with check (key = 'watermark_enabled');
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'app_settings'
+      and policyname = 'app_settings_public_update'
+  ) then
+    create policy "app_settings_public_update"
+      on public.app_settings
+      for update
+      to anon, authenticated
+      using (key = 'watermark_enabled')
+      with check (key = 'watermark_enabled');
+  end if;
+
   if not exists (
     select 1 from pg_policies
     where schemaname = 'public'
@@ -167,6 +218,7 @@ end $$;
 
 grant select, insert, update on public.photo_orders to anon, authenticated;
 grant select, insert on public.photo_order_items to anon, authenticated;
+grant select, insert, update on public.app_settings to anon, authenticated;
 
 create or replace function public.get_paid_photo_download(p_token uuid)
 returns jsonb

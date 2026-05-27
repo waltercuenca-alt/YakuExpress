@@ -6,7 +6,7 @@ import PhotoOrderSuccess from '../components/photos/PhotoOrderSuccess.jsx';
 import PhotoPackagePanel from '../components/photos/PhotoPackagePanel.jsx';
 import PhotoSearch from '../components/photos/PhotoSearch.jsx';
 import PhotoSummaryModal from '../components/photos/PhotoSummaryModal.jsx';
-import { getWatermarkEnabled, WATERMARK_CHANGE_EVENT, WATERMARK_STORAGE_KEY } from '../watermarkConfig.js';
+import { getWatermarkEnabled, loadGlobalWatermarkEnabled, WATERMARK_CHANGE_EVENT, WATERMARK_STORAGE_KEY } from '../watermarkConfig.js';
 
 export default function Fotos({ navigate, path = '' }) {
   const routeCode = decodeURIComponent((path.split('/')[2] || '').trim()).toUpperCase();
@@ -46,6 +46,7 @@ export default function Fotos({ navigate, path = '' }) {
     };
     window.addEventListener(WATERMARK_CHANGE_EVENT, handleWatermarkChange);
     window.addEventListener('storage', handleStorage);
+    void loadGlobalWatermarkEnabled().then(({ enabled }) => setWatermarkPreviewEnabled(enabled));
     return () => {
       window.removeEventListener(WATERMARK_CHANGE_EVENT, handleWatermarkChange);
       window.removeEventListener('storage', handleStorage);
