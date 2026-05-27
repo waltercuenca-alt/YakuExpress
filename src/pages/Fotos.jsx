@@ -6,6 +6,7 @@ import PhotoOrderSuccess from '../components/photos/PhotoOrderSuccess.jsx';
 import PhotoPackagePanel from '../components/photos/PhotoPackagePanel.jsx';
 import PhotoSearch from '../components/photos/PhotoSearch.jsx';
 import PhotoSummaryModal from '../components/photos/PhotoSummaryModal.jsx';
+import { getWatermarkEnabled, WATERMARK_CHANGE_EVENT, WATERMARK_STORAGE_KEY } from '../watermarkConfig.js';
 
 export default function Fotos({ navigate, path = '' }) {
   const routeCode = decodeURIComponent((path.split('/')[2] || '').trim()).toUpperCase();
@@ -20,6 +21,7 @@ export default function Fotos({ navigate, path = '' }) {
   const [activePhoto, setActivePhoto] = useState(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [successOrder, setSuccessOrder] = useState(null);
+  const [watermarkEnabled, setWatermarkPreviewEnabled] = useState(getWatermarkEnabled);
 
   const selectedPhotos = useMemo(
     () => photos.filter((photo) => selectedIds.includes(photo.id)),
@@ -36,6 +38,19 @@ export default function Fotos({ navigate, path = '' }) {
       void searchPhotos(routeCode, { updateRoute: false });
     }
   }, [routeCode]);
+
+  useEffect(() => {
+    const handleWatermarkChange = () => setWatermarkPreviewEnabled(getWatermarkEnabled());
+    const handleStorage = (event) => {
+      if (event.key === WATERMARK_STORAGE_KEY) handleWatermarkChange();
+    };
+    window.addEventListener(WATERMARK_CHANGE_EVENT, handleWatermarkChange);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener(WATERMARK_CHANGE_EVENT, handleWatermarkChange);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   const submitSearch = async (event) => {
     event.preventDefault();
@@ -192,6 +207,7 @@ export default function Fotos({ navigate, path = '' }) {
                 selectedIds={selectedIds}
                 onToggle={togglePhoto}
                 onOpen={setActivePhoto}
+                watermarkEnabled={watermarkEnabled}
               />
             )}
           </div>
@@ -226,7 +242,7 @@ export default function Fotos({ navigate, path = '' }) {
       )}
 
       {activePhoto && (
-        <PhotoLightbox photo={activePhoto} onClose={() => setActivePhoto(null)} />
+        <PhotoLightbox photo={activePhoto} watermarkEnabled={watermarkEnabled} onClose={() => setActivePhoto(null)} />
       )}
     </main>
   );

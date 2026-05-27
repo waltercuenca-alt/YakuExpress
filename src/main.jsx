@@ -4,6 +4,7 @@ import { supabase, syncOrderToSheets } from './supabase.js';
 import Tienda from './pages/Tienda.jsx';
 import Fotos from './pages/Fotos.jsx';
 import DescargaFotos from './pages/DescargaFotos.jsx';
+import { getWatermarkEnabled, setWatermarkEnabled } from './watermarkConfig.js';
 import './styles.css';
 
 const products = [
@@ -758,6 +759,7 @@ function Caja({ session, setSession }) {
   const [photoOrdersMessage, setPhotoOrdersMessage] = useState('');
   const [photoShareMessage, setPhotoShareMessage] = useState('');
   const [showHiddenPhotoOrders, setShowHiddenPhotoOrders] = useState(false);
+  const [watermarkPreviewEnabled, setWatermarkPreviewEnabled] = useState(getWatermarkEnabled);
   const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const audioContextRef = useRef(null);
@@ -1180,6 +1182,12 @@ function Caja({ session, setSession }) {
     setPhotoShareMessage(`WhatsApp preparado para ${photoOrder.order_code}.`);
   };
 
+  const toggleWatermarkPreview = () => {
+    const nextValue = !watermarkPreviewEnabled;
+    setWatermarkEnabled(nextValue);
+    setWatermarkPreviewEnabled(nextValue);
+  };
+
   useEffect(() => {
     const channel = supabase
       .channel('photo-orders-cashier')
@@ -1428,6 +1436,24 @@ function Caja({ session, setSession }) {
         ) : (
           <p className="soft">Sin pedidos de fotos por ahora.</p>
         )}
+      </section>
+      <section className="panel staff photo-settings-panel">
+        <div>
+          <h2>Configuración de fotos</h2>
+          <p>Protege las fotos visibles antes del pago. Las descargas pagadas siguen saliendo limpias.</p>
+        </div>
+        <div className={`watermark-control ${watermarkPreviewEnabled ? 'active' : ''}`}>
+          <span>Marca de agua en previews</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={watermarkPreviewEnabled}
+            onClick={toggleWatermarkPreview}
+          >
+            <i aria-hidden="true" />
+          </button>
+          <strong>{watermarkPreviewEnabled ? 'Activada' : 'Desactivada'}</strong>
+        </div>
       </section>
       <section className="panel staff">
         <div className="staff-head">
