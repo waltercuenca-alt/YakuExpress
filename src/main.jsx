@@ -826,7 +826,8 @@ function Caja({ session, setSession, onCajaLogout }) {
   const [showHiddenPhotoOrders, setShowHiddenPhotoOrders] = useState(false);
   const [watermarkPreviewEnabled, setWatermarkPreviewEnabled] = useState(getWatermarkEnabled);
   const [watermarkSyncStatus, setWatermarkSyncStatus] = useState('Consultando configuracion global...');
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('yaku_cashier_sound_enabled') === 'true');
+  const [soundEnabled, setSoundEnabled] = useState(readOrderSoundPreference);
+  const [soundMessage, setSoundMessage] = useState('');
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const audioContextRef = useRef(null);
   const soundEnabledRef = useRef(soundEnabled);
@@ -869,8 +870,9 @@ function Caja({ session, setSession, onCajaLogout }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('yaku_cashier_sound_enabled', soundEnabled ? 'true' : 'false');
+    writeOrderSoundPreference(soundEnabled);
     soundEnabledRef.current = soundEnabled;
+    if (!soundEnabled) setSoundMessage('');
     console.log('Sound enabled', soundEnabled);
   }, [soundEnabled]);
 
@@ -897,17 +899,23 @@ function Caja({ session, setSession, onCajaLogout }) {
       await ensureCashierAudio(audioContextRef);
       audioUnlockedRef.current = true;
       setAudioUnlocked(true);
+      setSoundMessage('Sonido de notificaciones activado.');
       return true;
     } catch (error) {
       console.warn('YakuExpress cashier audio unavailable:', error);
       setAudioUnlocked(false);
+      setSoundMessage('No pudimos habilitar el sonido en este navegador.');
       return false;
     }
   };
 
   const playOrderSoundOnce = (order, eventType) => {
     const orderKey = orderIdentifier(order);
-    if (!orderKey || !eventType || !soundEnabledRef.current || !audioUnlockedRef.current) return;
+    if (!orderKey || !eventType || !soundEnabledRef.current) return;
+    if (!audioUnlockedRef.current) {
+      setSoundMessage('Hace click para habilitar sonido de notificaciones.');
+      return;
+    }
     const eventKey = `${orderKey}:${eventType}`;
     if (playedSoundEventsRef.current.has(eventKey)) return;
     playedSoundEventsRef.current.add(eventKey);
@@ -1032,9 +1040,7 @@ function Caja({ session, setSession, onCajaLogout }) {
       if (!didPrimePhotoOrdersRef.current) return;
       if (!previousIds.has(order.id) && order.status === 'pending') {
         console.log('NUEVO PEDIDO DE FOTOS', order.order_code);
-        if (soundEnabledRef.current && audioUnlockedRef.current) {
-          playCashierSound('new_order', audioContextRef);
-        }
+        playOrderSoundOnce({ id: `photo-${order.id}`, code: order.order_code }, 'new_order');
       }
     });
     knownPhotoOrderIdsRef.current = nextIds;
@@ -1559,6 +1565,7 @@ function Caja({ session, setSession, onCajaLogout }) {
                 onClick={async () => {
                   if (soundEnabled && audioUnlocked) {
                     setSoundEnabled(false);
+                    setSoundMessage('');
                     return;
                   }
                   setSoundEnabled(true);
@@ -1566,10 +1573,11 @@ function Caja({ session, setSession, onCajaLogout }) {
                   if (unlocked) playCashierSound('enabled', audioContextRef);
                 }}
               >
-                {soundEnabled && audioUnlocked ? 'Desactivar sonidos' : 'Activar sonidos de caja'}
+                {soundEnabled && audioUnlocked ? 'Sonido pedidos ON' : 'Habilitar sonido'}
               </button>
-              <span>{soundEnabled && audioUnlocked ? 'Sonido activado' : 'Sonido desactivado'}</span>
+              <span>{soundEnabled ? (audioUnlocked ? 'Notificaciones activas' : 'Click para activar') : 'Sonido OFF'}</span>
             </div>
+            {soundMessage && <small className="sound-hint">{soundMessage}</small>}
             <button className="ghost" onClick={() => refreshCaja()} disabled={todayLoading || summaryLoading}>
               {todayLoading ? 'Actualizando...' : 'Actualizar pedidos de hoy'}
             </button>
@@ -2608,8 +2616,29 @@ function whatsappPhone(value) {
   return digits;
 }
 const CAJA_PIN_SESSION_KEY = 'yaku_caja_unlocked';
+const ORDER_SOUND_STORAGE_KEY = 'yaku_order_sound_enabled';
 const GITHUB_PAGES_BASE = '/YakuExpress';
 
+function readOrderSoundPreference() {
+  try {
+    const stored = localStorage.getItem(ORDER_SOUND_STORAGE_KEY);
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+    const legacyStored = localStorage.getItem('yaku_cashier_sound_enabled');
+    if (legacyStored === 'true') return true;
+    if (legacyStored === 'false') return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+function writeOrderSoundPreference(enabled) {
+  try {
+    localStorage.setItem(ORDER_SOUND_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch {
+    console.warn('No se pudo guardar la preferencia de sonido de pedidos.');
+  }
+}
 function cajaPin() {
   const configuredPin = String(import.meta.env.VITE_CAJA_PIN || '').trim();
   if (configuredPin) return configuredPin;
