@@ -243,7 +243,16 @@ export default function Fotos({ navigate, path = '' }) {
       )}
 
       {activePhoto && (
-        <PhotoLightbox photo={activePhoto} watermarkEnabled={watermarkEnabled} onClose={() => setActivePhoto(null)} />
+        <PhotoLightbox
+          photo={activePhoto}
+          photos={photos}
+          selectedIds={selectedIds}
+          selectedCount={selectedIds.length}
+          watermarkEnabled={watermarkEnabled}
+          onClose={() => setActivePhoto(null)}
+          onChangePhoto={setActivePhoto}
+          onSelectToggle={togglePhoto}
+        />
       )}
     </main>
   );
