@@ -83,8 +83,9 @@ function App() {
     if (redirected) {
       delete sessionStorage.redirect;
       const url = new URL(redirected);
-      history.replaceState(null, '', url.pathname + url.search);
-      setPath(stripBasePath(url.pathname));
+      const redirectedPath = stripBasePath(url.pathname);
+      history.replaceState(null, '', `${withBasePath(redirectedPath)}${url.search}`);
+      setPath(redirectedPath);
     }
     const onPop = () => setPath(currentRoute());
     window.addEventListener('popstate', onPop);
@@ -2519,18 +2520,31 @@ function whatsappPhone(value) {
   if (digits.length === 9) return `51${digits}`;
   return digits;
 }
+const GITHUB_PAGES_BASE = '/YakuExpress';
+
 function basePath() { return import.meta.env.BASE_URL.replace(/\/$/, ''); }
 function stripBasePath(pathname) {
   const base = basePath();
   if (base && base !== '/' && pathname.startsWith(base)) return pathname.slice(base.length) || '/';
+  if ((!base || base === '/') && (pathname === GITHUB_PAGES_BASE || pathname.startsWith(`${GITHUB_PAGES_BASE}/`))) {
+    return pathname.slice(GITHUB_PAGES_BASE.length) || '/';
+  }
   return pathname;
+}
+function normalizeBrowserPath(pathname, search = '') {
+  const normalizedPath = stripBasePath(pathname);
+  const base = basePath();
+  if ((!base || base === '/') && normalizedPath !== pathname) {
+    history.replaceState(null, '', `${normalizedPath}${search}`);
+  }
+  return normalizedPath;
 }
 function withBasePath(pathname) {
   const base = basePath();
   if (!base || base === '/') return pathname;
   return `${base}${pathname}`;
 }
-function currentRoute() { return stripBasePath(window.location.pathname); }
+function currentRoute() { return normalizeBrowserPath(window.location.pathname, window.location.search); }
 function normalizeDraft(draft) {
   if (!draft || !Array.isArray(draft.items)) return null;
   return { ...draft, items: draft.items.map((item) => ({ ...item, uid: item.uid || crypto.randomUUID() })) };

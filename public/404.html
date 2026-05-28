@@ -3,8 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <script>
-      sessionStorage.redirect = location.href;
-      location.replace('/YakuExpress/');
+      (function () {
+        var githubPagesBase = '/YakuExpress/';
+        var isGitHubPages = location.hostname.endsWith('github.io');
+
+        if (isGitHubPages) {
+          sessionStorage.redirect = location.href;
+          location.replace(githubPagesBase);
+        }
+      })();
     </script>
   </head>
   <body></body>
