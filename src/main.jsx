@@ -1403,7 +1403,7 @@ function Caja({ session, setSession }) {
                     <b>{photoOrderStatusLabel(photoOrder.status)}</b>
                   </div>
                   <div className="photo-order-details">
-                    <span>Cliente: <b>{photoOrder.client_code}</b></span>
+                    <span>Grupo: <b>{photoOrderGroupCode(photoOrder)}</b></span>
                     <span>Pack: <b>{photoOrder.package_type}</b></span>
                     <span>Cantidad: <b>{photoOrder.selected_count} fotos</b></span>
                     <span>Monto: <b>{formatPhotoMoney(photoOrder.total_amount)}</b></span>
@@ -2031,6 +2031,17 @@ function photoOrderStatusLabel(status) {
     processing: 'En proceso',
     completed: 'Entregado',
   })[status] || status || 'Pendiente';
+}
+
+function photoOrderGroupCode(photoOrder) {
+  const groupCode = String(
+    photoOrder?.cloudinary_folder
+      || photoOrder?.group_code
+      || photoOrder?.client_code
+      || photoOrder?.customer_code
+      || '',
+  ).trim();
+  return groupCode || 'no especificado';
 }
 
 function formatPhotoMoney(amount) {
