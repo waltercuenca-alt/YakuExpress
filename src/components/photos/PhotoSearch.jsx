@@ -51,22 +51,25 @@ export default function PhotoSearch({ code, setCode, loading, onSubmit, onGroupS
         </button>
       </form>
 
-      <form className="photos-search photos-manual-search" onSubmit={onSubmit}>
-        <label htmlFor="photo-code">Busqueda manual por carpeta</label>
-        <div>
-          <input
-            id="photo-code"
-            value={code}
-            onChange={(event) => setCode(event.target.value.toUpperCase())}
-            placeholder="23MAYO01"
-            autoComplete="off"
-          />
-          <button type="submit" disabled={loading || !code.trim()}>
-            {loading ? 'Buscando...' : 'Ver fotos'}
-          </button>
-        </div>
-        <small>Tambien puedes escribir la carpeta completa, por ejemplo 23MAYO01.</small>
-      </form>
+      <details className="photos-manual-details">
+        <summary>Busqueda manual por carpeta</summary>
+        <form className="photos-search photos-manual-search" onSubmit={onSubmit}>
+          <label htmlFor="photo-code">Carpeta Cloudinary</label>
+          <div>
+            <input
+              id="photo-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value.toUpperCase())}
+              placeholder="23MAYO01"
+              autoComplete="off"
+            />
+            <button type="submit" disabled={loading || !code.trim()}>
+              {loading ? 'Buscando...' : 'Ver fotos'}
+            </button>
+          </div>
+          <small>Tambien puedes escribir la carpeta completa, por ejemplo 23MAYO01.</small>
+        </form>
+      </details>
     </section>
   );
 }

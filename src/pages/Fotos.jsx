@@ -6,6 +6,7 @@ import PhotoOrderSuccess from '../components/photos/PhotoOrderSuccess.jsx';
 import PhotoPackagePanel from '../components/photos/PhotoPackagePanel.jsx';
 import PhotoSearch from '../components/photos/PhotoSearch.jsx';
 import PhotoSummaryModal from '../components/photos/PhotoSummaryModal.jsx';
+import SelfieSearchPreview from '../components/photos/SelfieSearchPreview.jsx';
 import { getWatermarkEnabled, loadGlobalWatermarkEnabled, WATERMARK_CHANGE_EVENT, WATERMARK_STORAGE_KEY } from '../watermarkConfig.js';
 
 export default function Fotos({ navigate, path = '' }) {
@@ -179,29 +180,36 @@ export default function Fotos({ navigate, path = '' }) {
         <header className="photos-poster-head">
           <div className="photos-logo">Yaku<br />Park</div>
           <div className="photos-title-block">
-            <h1>¡ELIGE TUS MEJORES MOMENTOS!</h1>
-            <p>Revive tu aventura en YakuPark</p>
+            <h1>Revivi tu aventura en Yakupark</h1>
+            <p>Encontra tus fotos y elegi tus mejores recuerdos.</p>
           </div>
-          <PhotoSearch
-            code={code}
-            setCode={setCode}
-            loading={loading}
-            onSubmit={submitSearch}
-            onGroupSearch={submitGroupSearch}
-          />
         </header>
+
+        <section className="photos-finder-layout" aria-label="Herramientas para buscar fotos">
+          <div className="photos-primary-search">
+            <span>Busqueda principal</span>
+            <h2>Encontra tus fotos mas rapido</h2>
+            <p>Ingresa el dia y tu codigo de grupo para cargar solo tu galeria.</p>
+            <PhotoSearch
+              code={code}
+              setCode={setCode}
+              loading={loading}
+              onSubmit={submitSearch}
+              onGroupSearch={submitGroupSearch}
+            />
+          </div>
+          <SelfieSearchPreview />
+        </section>
 
         <section className="photos-poster-body">
           <div className="photos-results">
-            {searchedCode && (
-              <div className="photos-results-head">
-                <div>
-                  <small>Codigo cliente</small>
-                  <strong>{searchedCode}</strong>
-                </div>
-                <span>{selectedPhotos.length} fotos seleccionadas</span>
+            <div className="photos-results-head">
+              <div>
+                <small>Tus recuerdos</small>
+                <strong>{searchedCode || 'Galeria Yaku'}</strong>
               </div>
-            )}
+              <span>{selectedPhotos.length} fotos seleccionadas</span>
+            </div>
 
             {loading && <PhotoLoading />}
 
