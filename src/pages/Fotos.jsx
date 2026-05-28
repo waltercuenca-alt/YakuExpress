@@ -58,6 +58,11 @@ export default function Fotos({ navigate, path = '' }) {
     await searchPhotos(code, { updateRoute: true });
   };
 
+  const submitGroupSearch = async (groupSearchCode) => {
+    setCode(groupSearchCode);
+    await searchPhotos(groupSearchCode, { updateRoute: true });
+  };
+
   const searchPhotos = async (rawCode, options = {}) => {
     const nextCode = String(rawCode || '').trim().toUpperCase();
     if (!nextCode) return;
@@ -78,7 +83,7 @@ export default function Fotos({ navigate, path = '' }) {
       const nextPhotos = await loadClientPhotos(nextCode);
       setPhotos(nextPhotos);
       if (!nextPhotos.length) {
-        setError('No encontramos fotos para este codigo');
+        setError('No encontramos fotos para este codigo. Verifica el numero o consulta al equipo de fotografia.');
       }
     } catch (loadError) {
       console.error('YakuExpress fotos error:', loadError);
@@ -177,7 +182,13 @@ export default function Fotos({ navigate, path = '' }) {
             <h1>¡ELIGE TUS MEJORES MOMENTOS!</h1>
             <p>Revive tu aventura en YakuPark</p>
           </div>
-          <PhotoSearch code={code} setCode={setCode} loading={loading} onSubmit={submitSearch} />
+          <PhotoSearch
+            code={code}
+            setCode={setCode}
+            loading={loading}
+            onSubmit={submitSearch}
+            onGroupSearch={submitGroupSearch}
+          />
         </header>
 
         <section className="photos-poster-body">
@@ -197,7 +208,7 @@ export default function Fotos({ navigate, path = '' }) {
             {!loading && error && (
               <div className="photos-empty">
                 <strong>{error}</strong>
-                <p>Verifica el numero o consulta en caja.</p>
+                <p>Verifica el numero o consulta al equipo de fotografia.</p>
                 <button type="button" onClick={() => navigate?.('/cliente')}>Volver</button>
               </div>
             )}
