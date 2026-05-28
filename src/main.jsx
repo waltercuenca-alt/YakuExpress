@@ -710,9 +710,73 @@ function Confirmation({ order, setOrder, setStep, navigate }) {
 
 function StaffPanel({ mode, navigate }) {
   const [session, setSession] = useState(readSession());
+  const [cajaUnlocked, setCajaUnlocked] = useState(() => mode !== 'caja' || readCajaPinSession());
+  if (mode === 'caja' && !cajaUnlocked) {
+    return <CajaPinAccess navigate={navigate} onUnlock={() => setCajaUnlocked(true)} />;
+  }
   if (!session) return <Login mode={mode} setSession={setSession} navigate={navigate} />;
   if (mode === 'marketing') return <Marketing session={session} setSession={setSession} />;
-  return <Caja session={session} setSession={setSession} />;
+  return (
+    <Caja
+      session={session}
+      setSession={setSession}
+      onCajaLogout={() => {
+        clearCajaPinSession();
+        setCajaUnlocked(false);
+      }}
+    />
+  );
+}
+
+function CajaPinAccess({ navigate, onUnlock }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const configuredPin = cajaPin();
+  const pinConfigured = Boolean(configuredPin);
+
+  const submit = (event) => {
+    event.preventDefault();
+    if (!pinConfigured) {
+      setError('PIN de caja no configurado. Revisa VITE_CAJA_PIN.');
+      return;
+    }
+    if (pin.trim() !== configuredPin) {
+      setError('PIN incorrecto. Intenta nuevamente.');
+      setPin('');
+      return;
+    }
+    writeCajaPinSession();
+    onUnlock();
+  };
+
+  return (
+    <Shell compact>
+      <form className="caja-pin-card panel" onSubmit={submit}>
+        <Icon label="PIN" large />
+        <span>YakuExpress seguro</span>
+        <h1>Acceso a caja</h1>
+        <p>Ingresa el PIN para continuar.</p>
+        <label className="field">
+          <span>PIN</span>
+          <input
+            value={pin}
+            onChange={(event) => setPin(event.target.value)}
+            inputMode="numeric"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Ingresa tu PIN"
+            autoFocus
+          />
+        </label>
+        {error && <p className="error">{error}</p>}
+        {!pinConfigured && (
+          <p className="soft">Configura VITE_CAJA_PIN para habilitar el acceso a caja.</p>
+        )}
+        <button type="submit" disabled={!pinConfigured || !pin.trim()}>Ingresar</button>
+        <button type="button" className="ghost" onClick={() => navigate('/cliente')}>Volver a cliente</button>
+      </form>
+    </Shell>
+  );
 }
 
 function Login({ mode, setSession, navigate }) {
@@ -742,7 +806,7 @@ function Login({ mode, setSession, navigate }) {
   );
 }
 
-function Caja({ session, setSession }) {
+function Caja({ session, setSession, onCajaLogout }) {
   const [orders, setOrders] = useState([]);
   const [todayOrders, setTodayOrders] = useState([]);
   const [photoOrders, setPhotoOrders] = useState([]);
@@ -1223,7 +1287,16 @@ function Caja({ session, setSession }) {
   return (
     <Shell compact>
       <section className="panel staff">
-        <StaffHeader title="Caja YakuExpress" session={session} setSession={setSession} />
+        <StaffHeader
+          title="Caja YakuExpress"
+          session={session}
+          setSession={setSession}
+          extraAction={onCajaLogout && (
+            <button type="button" className="ghost caja-lock-button" onClick={onCajaLogout}>
+              Salir de caja
+            </button>
+          )}
+        />
         <div className="staff-head">
           <h2>Centro operativo de pedidos</h2>
           <small>Actualizacion automatica cada 10s</small>
@@ -1989,11 +2062,14 @@ function Marketing({ session, setSession }) {
   );
 }
 
-function StaffHeader({ title, session, setSession }) {
+function StaffHeader({ title, session, setSession, extraAction = null }) {
   return (
     <div className="staff-head">
       <h1>{title}</h1>
-      <button className="ghost" onClick={() => { localStorage.removeItem('yakuexpress_staff'); setSession(null); }}>Salir</button>
+      <div className="staff-header-actions">
+        {extraAction}
+        <button className="ghost" onClick={() => { localStorage.removeItem('yakuexpress_staff'); setSession(null); }}>Salir</button>
+      </div>
     </div>
   );
 }
@@ -2531,8 +2607,40 @@ function whatsappPhone(value) {
   if (digits.length === 9) return `51${digits}`;
   return digits;
 }
+const CAJA_PIN_SESSION_KEY = 'yaku_caja_unlocked';
 const GITHUB_PAGES_BASE = '/YakuExpress';
 
+function cajaPin() {
+  const configuredPin = String(import.meta.env.VITE_CAJA_PIN || '').trim();
+  if (configuredPin) return configuredPin;
+  if (import.meta.env.DEV) {
+    console.warn('VITE_CAJA_PIN no esta configurado. Usando PIN temporal de desarrollo: 1234');
+    return '1234';
+  }
+  console.warn('VITE_CAJA_PIN no esta configurado. El acceso a caja queda bloqueado hasta configurarlo.');
+  return '';
+}
+function readCajaPinSession() {
+  try {
+    return sessionStorage.getItem(CAJA_PIN_SESSION_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+function writeCajaPinSession() {
+  try {
+    sessionStorage.setItem(CAJA_PIN_SESSION_KEY, 'true');
+  } catch {
+    console.warn('No se pudo guardar la sesion local de caja.');
+  }
+}
+function clearCajaPinSession() {
+  try {
+    sessionStorage.removeItem(CAJA_PIN_SESSION_KEY);
+  } catch {
+    console.warn('No se pudo cerrar la sesion local de caja.');
+  }
+}
 function basePath() { return import.meta.env.BASE_URL.replace(/\/$/, ''); }
 function stripBasePath(pathname) {
   const base = basePath();

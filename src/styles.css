@@ -212,7 +212,58 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 .cashier-instructions ol { margin: 0; padding-left: 22px; color: #245369; font-weight: 900; line-height: 1.45; }
 .edit-before-pay { border-color: #ffce60; background: #fff9e8; }
 .login { width: min(440px, 100%); margin: 30px auto; display: grid; gap: 14px; }
+.caja-pin-card {
+  width: min(440px, 100%);
+  margin: 34px auto;
+  display: grid;
+  gap: 14px;
+  text-align: center;
+  border: 1px solid rgba(0, 191, 179, .22);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 206, 0, .2), transparent 34%),
+    linear-gradient(180deg, #ffffff, #f0fffc);
+  box-shadow: 0 24px 58px rgba(0, 87, 120, .16);
+}
+.caja-pin-card > span {
+  color: #00a7e1;
+  font-size: .78rem;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.caja-pin-card h1 {
+  margin: 0;
+  color: var(--yaku-ocean-deep);
+  font-size: clamp(2rem, 7vw, 3rem);
+  line-height: 1;
+}
+.caja-pin-card p {
+  margin: 0;
+  color: #4b6d7b;
+  font-weight: 850;
+}
+.caja-pin-card .field {
+  text-align: left;
+}
+.caja-pin-card input {
+  min-height: 54px;
+  text-align: center;
+  font-size: 1.2rem;
+  letter-spacing: .18em;
+}
 .staff { display: grid; gap: 14px; }
+.staff-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.caja-lock-button {
+  border-color: #ffd184;
+  background: #fff8df;
+  color: #8a4b00;
+}
 .searchbar { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: #e7faff; padding: 8px; border-radius: 8px; }
 .table-list { display: grid; gap: 10px; }
 .order-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid #cfeff7; border-radius: 8px; background: white; }
@@ -2329,6 +2380,8 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .waiting-actions { max-width: none; justify-content: stretch; }
   .waiting-actions button { flex: 1 1 150px; white-space: normal; }
   .modal-order-head { display: grid; gap: 8px; padding-right: 42px; }
+  .staff-header-actions { width: 100%; justify-content: stretch; }
+  .staff-header-actions button { flex: 1 1 140px; text-align: center; }
   .cashier-tools { width: 100%; justify-content: stretch; }
   .cashier-tools > * { flex: 1; }
   .sound-control { flex-wrap: wrap; justify-content: center; }
