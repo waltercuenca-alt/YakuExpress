@@ -6,6 +6,7 @@ import PhotoOrderSuccess from '../components/photos/PhotoOrderSuccess.jsx';
 import PhotoPackagePanel from '../components/photos/PhotoPackagePanel.jsx';
 import PhotoSearch from '../components/photos/PhotoSearch.jsx';
 import PhotoSummaryModal from '../components/photos/PhotoSummaryModal.jsx';
+import GroupSelfieSearch from '../components/photos/GroupSelfieSearch.jsx';
 import SelfieSearchPreview from '../components/photos/SelfieSearchPreview.jsx';
 import { getWatermarkEnabled, loadGlobalWatermarkEnabled, WATERMARK_CHANGE_EVENT, WATERMARK_STORAGE_KEY } from '../watermarkConfig.js';
 
@@ -198,8 +199,16 @@ export default function Fotos({ navigate, path = '' }) {
               onGroupSearch={submitGroupSearch}
             />
           </div>
-          <SelfieSearchPreview />
+          <SelfieSearchPreview galleryPhotos={photos} />
         </section>
+
+        <GroupSelfieSearch
+          photos={photos}
+          selectedIds={selectedIds}
+          onTogglePhoto={togglePhoto}
+          onOpenPhoto={setActivePhoto}
+          watermarkEnabled={watermarkEnabled}
+        />
 
         <section className="photos-poster-body">
           <div className="photos-results">
@@ -278,14 +287,9 @@ export default function Fotos({ navigate, path = '' }) {
 }
 
 async function loadClientPhotos(code) {
-  const folder = `yakupark/clientes/${code}`;
-  console.log('[YakuFotos] solicitando fotos', { code, folder, functionName: 'list-client-photos' });
-
   const { data, error } = await supabase.functions.invoke('list-client-photos', {
     body: { code },
   });
-
-  console.log('[YakuFotos] respuesta Edge Function', { data, error });
 
   if (error) {
     console.error('[YakuFotos] error invoke Supabase', error);
@@ -297,12 +301,6 @@ async function loadClientPhotos(code) {
   }
 
   const photos = Array.isArray(data.photos) ? data.photos : [];
-  console.log('[YakuFotos] fotos recibidas', {
-    code: data.code,
-    folder: data.folder,
-    count: photos.length,
-    photos,
-  });
   return photos;
 }
 
