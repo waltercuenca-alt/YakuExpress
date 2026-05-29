@@ -51,6 +51,8 @@ export default function GroupSelfieSearch({
   const streamRef = useRef(null);
   const searchRunRef = useRef(0);
   const selfiesRef = useRef([]);
+  const galleryFaceCacheRef = useRef(new Map());
+  const gallerySignatureRef = useRef('');
 
   const stopCamera = () => {
     if (videoRef.current) {
@@ -78,6 +80,14 @@ export default function GroupSelfieSearch({
     videoRef.current.srcObject = streamRef.current;
     void videoRef.current.play();
   }, [cameraActive]);
+
+  useEffect(() => {
+    const nextSignature = createGalleryCacheSignature(photos);
+    if (gallerySignatureRef.current && gallerySignatureRef.current !== nextSignature) {
+      galleryFaceCacheRef.current.clear();
+    }
+    gallerySignatureRef.current = nextSignature;
+  }, [photos]);
 
   const validSelfies = groupSelfies.filter((selfie) => selfie.status === 'valid' && selfie.descriptor);
   const canAddMembers = groupSelfies.length < MAX_GROUP_SELFIES;
@@ -321,7 +331,7 @@ export default function GroupSelfieSearch({
       }
 
       const nextResults = [];
-      const photoDescriptorsCache = new Map();
+      const photoDescriptorsCache = galleryFaceCacheRef.current;
       const totalPhotos = photos.length;
 
       for (let batchStart = 0; batchStart < totalPhotos; batchStart += GROUP_SEARCH_BATCH_SIZE) {
@@ -337,7 +347,7 @@ export default function GroupSelfieSearch({
           setSearchProgress({ current: index + 1, total: totalPhotos });
 
           try {
-            const { detections, sourceUsed } = await getGalleryFaceDescriptors(faceapi, photo, photoDescriptorsCache);
+            const { detections, sourceUsed, cacheHit } = await getGalleryFaceDescriptors(faceapi, photo, photoDescriptorsCache);
             if (!detections.length) continue;
 
             const matchedMembers = matchMembersAgainstGalleryFaces(faceapi, members, detections);
@@ -358,6 +368,7 @@ export default function GroupSelfieSearch({
                 confidenceLabel: confidenceLabelFor(bestDistance),
                 detectedFacesCount: detections.length,
                 sourceUsed,
+                cacheHit,
                 originalIndex: index,
               }),
             });
@@ -640,6 +651,7 @@ function GroupDebugPanel({ debugInfo }) {
       <span>Coinciden: {debugInfo.matchedMembersLabel}</span>
       <span>Motivo: {debugInfo.recommendationReason}</span>
       <span>Fuente: {debugInfo.sourceUsed || 'sin dato'}</span>
+      <span>Cache: {debugInfo.cacheHit ? 'si' : 'no'}</span>
       {Number.isInteger(debugInfo.originalIndex) && (
         <span>Indice original: {debugInfo.originalIndex}</span>
       )}
@@ -692,14 +704,15 @@ function detectGalleryFaceDescriptors(faceapi, image) {
 }
 
 async function getGalleryFaceDescriptors(faceapi, photo, photoDescriptorsCache) {
-  const cacheKey = photo.id || photo.publicId || photo.fullUrl || photo.thumbUrl;
+  const cacheKey = galleryPhotoCacheKey(photo);
   if (cacheKey && photoDescriptorsCache.has(cacheKey)) {
-    return photoDescriptorsCache.get(cacheKey);
+    return { ...photoDescriptorsCache.get(cacheKey), cacheHit: true };
   }
 
   const imageUrls = uniqueImageUrls([photo.fullUrl, photo.thumbUrl]);
   let detections = [];
   let sourceUsed = '';
+  let lastError = null;
 
   for (const imageUrl of imageUrls) {
     try {
@@ -710,13 +723,18 @@ async function getGalleryFaceDescriptors(faceapi, photo, photoDescriptorsCache) 
         break;
       }
     } catch (error) {
+      lastError = error;
       console.warn('YakuExpress group search skipped image source:', error);
     }
   }
 
-  const result = { detections, sourceUsed };
+  const result = {
+    detections,
+    sourceUsed,
+    error: detections.length ? null : lastError?.message || null,
+  };
   if (cacheKey) photoDescriptorsCache.set(cacheKey, result);
-  return result;
+  return { ...result, cacheHit: false };
 }
 
 function matchMembersAgainstGalleryFaces(faceapi, members, detections) {
@@ -768,6 +786,7 @@ function createDebugInfo({
   confidenceLabel,
   detectedFacesCount,
   sourceUsed,
+  cacheHit,
   originalIndex,
 }) {
   return {
@@ -780,6 +799,7 @@ function createDebugInfo({
     matchedMembersLabel: matchedMembers.map((member) => `Integrante ${member.memberNumber}`).join(', '),
     recommendationReason: recommendationReasonFor(matchedMembers.length, bestDistance),
     sourceUsed,
+    cacheHit,
     originalIndex,
     perMemberDistances: matchedMembers.map((member) => (
       `I${member.memberNumber}: ${formatDistance(member.distance)}`
@@ -894,6 +914,14 @@ function selfieStatusLabel(status) {
 function createLocalId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `group-selfie-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function createGalleryCacheSignature(photos) {
+  return photos.map((photo, index) => galleryPhotoCacheKey(photo) || `photo-${index}`).join('|');
+}
+
+function galleryPhotoCacheKey(photo) {
+  return photo.id || photo.publicId || photo.public_id || photo.url || photo.fullUrl || photo.thumbUrl;
 }
 
 function uniqueImageUrls(imageUrls) {
