@@ -5,6 +5,11 @@ const MAX_GROUP_SELFIES = 5;
 const MAX_GROUP_DISTANCE = 0.54;
 const SINGLE_MEMBER_RECOMMENDED_DISTANCE = 0.48;
 const GROUP_SEARCH_BATCH_SIZE = 8;
+const BACKGROUND_PRECACHE_DELAY_MS = 3000;
+const BACKGROUND_PRECACHE_BATCH_SIZE = 2;
+const BACKGROUND_PRECACHE_PAUSE_MS = 800;
+const BACKGROUND_PRECACHE_LIMIT = 40;
+const BACKGROUND_PRECACHE_MAX_ERRORS = 5;
 let groupFaceApiPromise = null;
 let groupFaceModelsPromise = null;
 
@@ -53,6 +58,9 @@ export default function GroupSelfieSearch({
   const selfiesRef = useRef([]);
   const galleryFaceCacheRef = useRef(new Map());
   const gallerySignatureRef = useRef('');
+  const precacheRunRef = useRef(0);
+  const precacheTimeoutRef = useRef(null);
+  const precachePreparedRef = useRef(0);
 
   const stopCamera = () => {
     if (videoRef.current) {
@@ -63,11 +71,20 @@ export default function GroupSelfieSearch({
     streamRef.current = null;
   };
 
+  const cancelBackgroundPrecache = () => {
+    precacheRunRef.current += 1;
+    if (precacheTimeoutRef.current) {
+      window.clearTimeout(precacheTimeoutRef.current);
+      precacheTimeoutRef.current = null;
+    }
+  };
+
   useEffect(() => {
     selfiesRef.current = groupSelfies;
   }, [groupSelfies]);
 
   useEffect(() => () => {
+    cancelBackgroundPrecache();
     stopCamera();
     selfiesRef.current.forEach((selfie) => {
       if (selfie.previewUrl) URL.revokeObjectURL(selfie.previewUrl);
@@ -84,10 +101,26 @@ export default function GroupSelfieSearch({
   useEffect(() => {
     const nextSignature = createGalleryCacheSignature(photos);
     if (gallerySignatureRef.current && gallerySignatureRef.current !== nextSignature) {
+      cancelBackgroundPrecache();
       galleryFaceCacheRef.current.clear();
+      precachePreparedRef.current = 0;
     }
     gallerySignatureRef.current = nextSignature;
   }, [photos]);
+
+  useEffect(() => {
+    cancelBackgroundPrecache();
+
+    if (!photos.length || searchStatus === 'loading' || cameraActive || groupSelfies.length > 0) return undefined;
+    if (isBackgroundPrecacheComplete(photos, galleryFaceCacheRef.current)) return undefined;
+
+    const runId = precacheRunRef.current;
+    precacheTimeoutRef.current = window.setTimeout(() => {
+      void runBackgroundPrecache(runId);
+    }, BACKGROUND_PRECACHE_DELAY_MS);
+
+    return cancelBackgroundPrecache;
+  }, [photos, searchStatus, cameraActive, groupSelfies.length]);
 
   const validSelfies = groupSelfies.filter((selfie) => selfie.status === 'valid' && selfie.descriptor);
   const canAddMembers = groupSelfies.length < MAX_GROUP_SELFIES;
@@ -96,6 +129,7 @@ export default function GroupSelfieSearch({
   const openFilePicker = () => fileInputRef.current?.click();
 
   const addSelfies = (event) => {
+    cancelBackgroundPrecache();
     const files = Array.from(event.target.files || [])
       .filter((file) => file.type?.startsWith('image/'));
     event.target.value = '';
@@ -133,6 +167,7 @@ export default function GroupSelfieSearch({
   };
 
   const removeSelfie = (selfieId) => {
+    cancelBackgroundPrecache();
     setGroupSelfies((current) => {
       const selfie = current.find((item) => item.id === selfieId);
       if (selfie?.previewUrl) URL.revokeObjectURL(selfie.previewUrl);
@@ -142,6 +177,7 @@ export default function GroupSelfieSearch({
   };
 
   const clearGroupSearch = () => {
+    cancelBackgroundPrecache();
     stopCamera();
     setCameraActive(false);
     setCameraMessage('');
@@ -157,6 +193,7 @@ export default function GroupSelfieSearch({
   const togglePanel = () => {
     setPanelOpen((open) => {
       if (open) {
+        cancelBackgroundPrecache();
         stopCamera();
         setCameraActive(false);
         setCameraMessage('');
@@ -190,6 +227,7 @@ export default function GroupSelfieSearch({
   };
 
   const startCamera = async () => {
+    cancelBackgroundPrecache();
     if (!canAddMembers) {
       setCameraMessage('Ya cargaste el maximo de 5 integrantes.');
       return;
@@ -262,6 +300,7 @@ export default function GroupSelfieSearch({
   };
 
   const validateGroupSelfie = async (selfie) => {
+    cancelBackgroundPrecache();
     try {
       const faceapi = await prepareGroupFaceApi();
       const image = await loadImageElement(selfie.file);
@@ -307,6 +346,7 @@ export default function GroupSelfieSearch({
   };
 
   const runGroupSearch = async () => {
+    cancelBackgroundPrecache();
     const members = groupSelfies
       .map((selfie, index) => ({ ...selfie, memberNumber: index + 1 }))
       .filter((selfie) => selfie.status === 'valid' && selfie.descriptor);
@@ -399,6 +439,43 @@ export default function GroupSelfieSearch({
       setSearchStatus('error');
       setSearchProgress({ current: 0, total: 0 });
       setSearchMessage('No pudimos analizar la galeria en este momento. Podes seguir eligiendo tus fotos manualmente.');
+    }
+  };
+
+  const runBackgroundPrecache = async (runId) => {
+    if (!photos.length || searchStatus === 'loading' || cameraActive || groupSelfies.length > 0) return;
+
+    let consecutiveErrors = 0;
+
+    try {
+      const faceapi = await loadGroupFaceModels();
+      const photosToPrepare = photos.slice(0, BACKGROUND_PRECACHE_LIMIT);
+
+      for (let batchStart = 0; batchStart < photosToPrepare.length; batchStart += BACKGROUND_PRECACHE_BATCH_SIZE) {
+        if (precacheRunRef.current !== runId || searchStatus === 'loading' || cameraActive || selfiesRef.current.length > 0) return;
+
+        const batch = photosToPrepare.slice(batchStart, batchStart + BACKGROUND_PRECACHE_BATCH_SIZE);
+
+        for (const photo of batch) {
+          if (precacheRunRef.current !== runId || searchStatus === 'loading' || cameraActive || selfiesRef.current.length > 0) return;
+
+          const cacheKey = galleryPhotoCacheKey(photo);
+          if (cacheKey && galleryFaceCacheRef.current.has(cacheKey)) continue;
+
+          try {
+            await getGalleryFaceDescriptors(faceapi, photo, galleryFaceCacheRef.current);
+            precachePreparedRef.current += 1;
+            consecutiveErrors = 0;
+          } catch (error) {
+            consecutiveErrors += 1;
+            if (consecutiveErrors >= BACKGROUND_PRECACHE_MAX_ERRORS) return;
+          }
+        }
+
+        await waitForBackgroundPrecache();
+      }
+    } catch (error) {
+      // El precache es oportunista: si falla, la busqueda real sigue funcionando.
     }
   };
 
@@ -944,6 +1021,15 @@ function galleryPhotoCacheKey(photo) {
   return photo.id || photo.publicId || photo.public_id || photo.url || photo.fullUrl || photo.thumbUrl;
 }
 
+function isBackgroundPrecacheComplete(photos, cache) {
+  return photos
+    .slice(0, BACKGROUND_PRECACHE_LIMIT)
+    .every((photo) => {
+      const cacheKey = galleryPhotoCacheKey(photo);
+      return cacheKey && cache.has(cacheKey);
+    });
+}
+
 function uniqueImageUrls(imageUrls) {
   return imageUrls.filter((imageUrl, index) => imageUrl && imageUrls.indexOf(imageUrl) === index);
 }
@@ -973,5 +1059,15 @@ function searchProgressPercent(progress) {
 function releaseUiThread() {
   return new Promise((resolve) => {
     window.setTimeout(resolve, 0);
+  });
+}
+
+function waitForBackgroundPrecache() {
+  return new Promise((resolve) => {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(resolve, { timeout: BACKGROUND_PRECACHE_PAUSE_MS });
+      return;
+    }
+    window.setTimeout(resolve, BACKGROUND_PRECACHE_PAUSE_MS);
   });
 }
