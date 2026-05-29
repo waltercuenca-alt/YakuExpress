@@ -330,7 +330,7 @@ export default function GroupSelfieSearch({
         return;
       }
 
-      const nextResults = [];
+      const nextResultsByPhoto = new Map();
       const photoDescriptorsCache = galleryFaceCacheRef.current;
       const totalPhotos = photos.length;
 
@@ -355,7 +355,7 @@ export default function GroupSelfieSearch({
             if (!matchedMembers.length) continue;
 
             const bestDistance = Math.min(...matchedMembers.map((member) => member.distance));
-            nextResults.push({
+            nextResultsByPhoto.set(resultPhotoKey(photo, index), {
               photo,
               matchedMembers,
               matchedMembersCount: matchedMembers.length,
@@ -377,12 +377,17 @@ export default function GroupSelfieSearch({
           }
         }
 
+        if (searchRunRef.current !== searchRun) return;
+        const partialResults = groupResultsByConfidence(Array.from(nextResultsByPhoto.values()));
+        setGroupResults(partialResults);
+        setSearchMessage(partialGroupResultsMessage(partialResults));
+
         await releaseUiThread();
       }
 
       if (searchRunRef.current !== searchRun) return;
 
-      const orderedResults = groupResultsByConfidence(nextResults);
+      const orderedResults = groupResultsByConfidence(Array.from(nextResultsByPhoto.values()));
 
       setGroupResults(orderedResults);
       setSearchStatus('done');
@@ -510,7 +515,7 @@ export default function GroupSelfieSearch({
             </div>
           )}
 
-          {(searchStatus === 'done' || searchStatus === 'error') && (
+          {((searchStatus === 'loading' && groupResults.length > 0) || searchStatus === 'done' || searchStatus === 'error') && (
             <section className={`group-selfie-results ${searchStatus === 'error' ? 'is-error' : ''}`}>
               <small>Busqueda experimental</small>
               <h3>Encontramos posibles fotos de tu grupo</h3>
@@ -528,6 +533,7 @@ export default function GroupSelfieSearch({
                   watermarkEnabled={watermarkEnabled}
                   selectedCount={selectedIds.length}
                   debugIAEnabled={debugIAEnabled}
+                  isSearching={searchStatus === 'loading'}
                 />
               )}
             </section>
@@ -547,6 +553,7 @@ function GroupResultGrid({
   watermarkEnabled,
   selectedCount,
   debugIAEnabled,
+  isSearching = false,
 }) {
   const recommendedPhotoIds = results.map((result) => result.photo.id).filter(Boolean);
   const selectedRecommendedCount = recommendedPhotoIds.filter((id) => selectedIds.includes(id)).length;
@@ -585,13 +592,17 @@ function GroupResultGrid({
       <div className="group-quick-actions" aria-label="Acciones rapidas">
         <div>
           <strong>Acciones rapidas</strong>
-          <p>Si las recomendaciones son correctas, podes seleccionarlas todas y ajustar tu pedido despues.</p>
+          <p>
+            {isSearching
+              ? 'Las acciones rapidas estaran disponibles al terminar el analisis.'
+              : 'Si las recomendaciones son correctas, podes seleccionarlas todas y ajustar tu pedido despues.'}
+          </p>
         </div>
         <div className="group-quick-buttons">
-          <button type="button" onClick={selectRecommendedPhotos} disabled={allRecommendedSelected}>
+          <button type="button" onClick={selectRecommendedPhotos} disabled={isSearching || allRecommendedSelected}>
             {allRecommendedSelected ? 'Recomendadas seleccionadas' : 'Seleccionar todas las recomendadas'}
           </button>
-          <button type="button" className="ghost" onClick={removeRecommendedPhotos} disabled={!hasSelectedRecommended}>
+          <button type="button" className="ghost" onClick={removeRecommendedPhotos} disabled={isSearching || !hasSelectedRecommended}>
             Quitar recomendadas
           </button>
           <button type="button" className="ghost" onClick={showFullGallery}>
@@ -835,6 +846,11 @@ function groupResultsMessage(results) {
   return 'No encontramos coincidencias claras para este grupo. Proba con selfies mas iluminadas o revisa la galeria completa.';
 }
 
+function partialGroupResultsMessage(results) {
+  if (!results.length) return '';
+  return `Ya encontramos ${results.length} fotos recomendadas. Seguimos revisando la galeria.`;
+}
+
 function packageMessageForRecommended(count) {
   if (count <= 4) {
     return 'Encontramos algunas fotos recomendadas de tu grupo. Selecciona tus favoritas para armar tu pedido.';
@@ -918,6 +934,10 @@ function createLocalId() {
 
 function createGalleryCacheSignature(photos) {
   return photos.map((photo, index) => galleryPhotoCacheKey(photo) || `photo-${index}`).join('|');
+}
+
+function resultPhotoKey(photo, index) {
+  return galleryPhotoCacheKey(photo) || `photo-${index}`;
 }
 
 function galleryPhotoCacheKey(photo) {
