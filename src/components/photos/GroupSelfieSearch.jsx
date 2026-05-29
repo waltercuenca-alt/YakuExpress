@@ -43,21 +43,41 @@ export default function GroupSelfieSearch({
   const [groupResults, setGroupResults] = useState([]);
   const [faceApiStatus, setFaceApiStatus] = useState('idle');
   const [faceApiMessage, setFaceApiMessage] = useState('');
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraMessage, setCameraMessage] = useState('');
   const [debugIAEnabled] = useState(() => isDebugIAEnabled());
   const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const searchRunRef = useRef(0);
   const selfiesRef = useRef([]);
+
+  const stopCamera = () => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (!streamRef.current) return;
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  };
 
   useEffect(() => {
     selfiesRef.current = groupSelfies;
   }, [groupSelfies]);
 
   useEffect(() => () => {
+    stopCamera();
     selfiesRef.current.forEach((selfie) => {
       if (selfie.previewUrl) URL.revokeObjectURL(selfie.previewUrl);
     });
     searchRunRef.current += 1;
   }, []);
+
+  useEffect(() => {
+    if (!cameraActive || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    void videoRef.current.play();
+  }, [cameraActive]);
 
   const validSelfies = groupSelfies.filter((selfie) => selfie.status === 'valid' && selfie.descriptor);
   const canAddMembers = groupSelfies.length < MAX_GROUP_SELFIES;
@@ -67,13 +87,25 @@ export default function GroupSelfieSearch({
 
   const addSelfies = (event) => {
     const files = Array.from(event.target.files || [])
-      .filter((file) => file.type?.startsWith('image/'))
-      .slice(0, MAX_GROUP_SELFIES - groupSelfies.length);
-
+      .filter((file) => file.type?.startsWith('image/'));
     event.target.value = '';
-    if (!files.length) return;
+    addSelfieFiles(files);
+  };
 
-    const nextSelfies = files.map((file) => ({
+  const addSelfieFiles = (files) => {
+    const availableSlots = MAX_GROUP_SELFIES - groupSelfies.length;
+    const filesToAdd = Array.from(files || [])
+      .filter((file) => file.type?.startsWith('image/'))
+      .slice(0, availableSlots);
+
+    if (!availableSlots) {
+      setCameraMessage('Ya cargaste el maximo de 5 integrantes.');
+      return;
+    }
+
+    if (!filesToAdd.length) return;
+
+    const nextSelfies = filesToAdd.map((file) => ({
       id: createLocalId(),
       file,
       previewUrl: URL.createObjectURL(file),
@@ -83,6 +115,7 @@ export default function GroupSelfieSearch({
     }));
 
     setGroupSelfies((current) => [...current, ...nextSelfies]);
+    setCameraMessage('');
     resetSearchResults();
     nextSelfies.forEach((selfie) => {
       void validateGroupSelfie(selfie);
@@ -99,6 +132,9 @@ export default function GroupSelfieSearch({
   };
 
   const clearGroupSearch = () => {
+    stopCamera();
+    setCameraActive(false);
+    setCameraMessage('');
     setGroupSelfies((current) => {
       current.forEach((selfie) => {
         if (selfie.previewUrl) URL.revokeObjectURL(selfie.previewUrl);
@@ -106,6 +142,17 @@ export default function GroupSelfieSearch({
       return [];
     });
     resetSearchResults();
+  };
+
+  const togglePanel = () => {
+    setPanelOpen((open) => {
+      if (open) {
+        stopCamera();
+        setCameraActive(false);
+        setCameraMessage('');
+      }
+      return !open;
+    });
   };
 
   const resetSearchResults = () => {
@@ -130,6 +177,78 @@ export default function GroupSelfieSearch({
       setFaceApiMessage('Hubo un problema cargando la busqueda inteligente. Proba recargar la pagina.');
       throw error;
     }
+  };
+
+  const startCamera = async () => {
+    if (!canAddMembers) {
+      setCameraMessage('Ya cargaste el maximo de 5 integrantes.');
+      return;
+    }
+    if (searchStatus === 'loading') return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraMessage('No pudimos abrir la camara. Podes subir una foto desde tus archivos.');
+      return;
+    }
+
+    stopCamera();
+    setCameraMessage('Abriendo camara...');
+
+    try {
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'user' },
+            width: { ideal: 960 },
+            height: { ideal: 1280 },
+          },
+          audio: false,
+        });
+      } catch (frontCameraError) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
+      streamRef.current = stream;
+      setCameraActive(true);
+      setCameraMessage('Camara lista. Usa una selfie individual, con buena luz y rostro de frente.');
+    } catch (error) {
+      console.warn('YakuExpress group selfie camera error:', error);
+      stopCamera();
+      setCameraActive(false);
+      setCameraMessage('No pudimos abrir la camara. Podes subir una foto desde tus archivos.');
+    }
+  };
+
+  const cancelCamera = () => {
+    stopCamera();
+    setCameraActive(false);
+    setCameraMessage('');
+  };
+
+  const captureCameraSelfie = async () => {
+    const video = videoRef.current;
+    if (!video || searchStatus === 'loading' || !canAddMembers) return;
+
+    const width = video.videoWidth || 720;
+    const height = video.videoHeight || 960;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    context.drawImage(video, 0, 0, width, height);
+    const blob = await canvasToBlob(canvas);
+    if (!blob) {
+      setCameraMessage('No pudimos capturar la selfie. Proba nuevamente.');
+      return;
+    }
+
+    const file = new File([blob], `selfie-grupo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    stopCamera();
+    setCameraActive(false);
+    setCameraMessage('Selfie capturada. Estamos buscando el rostro...');
+    addSelfieFiles([file]);
   };
 
   const validateGroupSelfie = async (selfie) => {
@@ -276,7 +395,7 @@ export default function GroupSelfieSearch({
           <h2>Encontra las fotos de tu grupo</h2>
           <p>Subi una selfie individual de cada integrante y te mostraremos las fotos mas recomendadas para revisar y comprar.</p>
         </div>
-        <button type="button" onClick={() => setPanelOpen((open) => !open)}>
+        <button type="button" onClick={togglePanel}>
           {panelOpen ? 'Cerrar busqueda' : 'Buscar fotos de mi grupo'}
         </button>
       </div>
@@ -293,12 +412,15 @@ export default function GroupSelfieSearch({
               aria-label="Agregar selfies de integrantes"
             />
             <button type="button" onClick={openFilePicker} disabled={!canAddMembers}>
-              Agregar integrante
+              Subir foto
+            </button>
+            <button type="button" className="ghost" onClick={startCamera} disabled={!canAddMembers || searchStatus === 'loading'}>
+              Tomar selfie
             </button>
             <button type="button" className="ghost" onClick={clearGroupSearch} disabled={!groupSelfies.length}>
               Limpiar busqueda
             </button>
-            <button type="button" className="ghost" onClick={() => setPanelOpen(false)}>
+            <button type="button" className="ghost" onClick={togglePanel}>
               Ver galeria completa
             </button>
           </div>
@@ -306,6 +428,28 @@ export default function GroupSelfieSearch({
           <p className="group-selfie-privacy">
             Tus selfies se usan solo para esta busqueda en tu navegador. No se guardan ni se suben.
           </p>
+
+          {(cameraActive || cameraMessage) && (
+            <div className="group-camera-card" aria-live="polite">
+              {cameraActive && (
+                <div className="group-camera-preview">
+                  <video ref={videoRef} autoPlay muted playsInline aria-label="Vista previa de camara para selfie de integrante" />
+                  <small>Vista previa en vivo. La selfie se usa solo en este navegador.</small>
+                </div>
+              )}
+              {cameraMessage && <strong>{cameraMessage}</strong>}
+              {cameraActive && (
+                <div className="group-camera-actions">
+                  <button type="button" onClick={captureCameraSelfie} disabled={!canAddMembers || searchStatus === 'loading'}>
+                    Capturar selfie
+                  </button>
+                  <button type="button" className="ghost" onClick={cancelCamera}>
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {faceApiMessage && (
             <div className={`group-ai-status is-${faceApiStatus}`} aria-live="polite">
@@ -717,6 +861,12 @@ function loadRemoteImageElement(imageUrl) {
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error('No se pudo leer una foto de la galeria.'));
     image.src = imageUrl;
+  });
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
   });
 }
 
