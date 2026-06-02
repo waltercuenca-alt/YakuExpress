@@ -10,6 +10,7 @@ const BACKGROUND_PRECACHE_BATCH_SIZE = 2;
 const BACKGROUND_PRECACHE_PAUSE_MS = 800;
 const BACKGROUND_PRECACHE_LIMIT = 40;
 const BACKGROUND_PRECACHE_MAX_ERRORS = 5;
+const CAMERA_REOPEN_DELAY_MS = 300;
 let groupFaceApiPromise = null;
 let groupFaceModelsPromise = null;
 
@@ -51,11 +52,21 @@ export default function GroupSelfieSearch({
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraMessage, setCameraMessage] = useState('');
   const [cameraPreviewReady, setCameraPreviewReady] = useState(false);
+  const [cameraOpening, setCameraOpening] = useState(false);
+  const [cameraCapturing, setCameraCapturing] = useState(false);
+  const [validatingSelfiesCount, setValidatingSelfiesCount] = useState(0);
   const [debugIAEnabled] = useState(() => isDebugIAEnabled());
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const cameraSourceRef = useRef('');
+  const cameraStartingRef = useRef(false);
+  const cameraSessionIdRef = useRef(0);
+  const cameraClosingUntilRef = useRef(0);
+  const cameraPreviewAbortRef = useRef(null);
+  const cameraFrameRequestRef = useRef(null);
+  const cameraCapturingRef = useRef(false);
+  const validatingSelfiesRef = useRef(0);
   const searchRunRef = useRef(0);
   const selfiesRef = useRef([]);
   const galleryFaceCacheRef = useRef(new Map());
@@ -64,17 +75,34 @@ export default function GroupSelfieSearch({
   const precacheTimeoutRef = useRef(null);
   const precachePreparedRef = useRef(0);
 
-  const stopCamera = () => {
+  const stopCamera = ({ clearMessage = false, markClosing = true, updateState = true } = {}) => {
+    cameraSessionIdRef.current += 1;
+    cameraStartingRef.current = false;
+    cameraPreviewAbortRef.current?.abort();
+    cameraPreviewAbortRef.current = null;
+    if (cameraFrameRequestRef.current) {
+      window.cancelAnimationFrame(cameraFrameRequestRef.current);
+      cameraFrameRequestRef.current = null;
+    }
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
       videoRef.current.removeAttribute('src');
+      videoRef.current.load();
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
     cameraSourceRef.current = '';
+    if (markClosing) {
+      cameraClosingUntilRef.current = Date.now() + CAMERA_REOPEN_DELAY_MS;
+    }
+    if (updateState) {
+      setCameraOpening(false);
+      setCameraPreviewReady(false);
+      if (clearMessage) setCameraMessage('');
+    }
   };
 
   const cancelBackgroundPrecache = () => {
@@ -91,7 +119,7 @@ export default function GroupSelfieSearch({
 
   useEffect(() => () => {
     cancelBackgroundPrecache();
-    stopCamera();
+    stopCamera({ updateState: false });
     selfiesRef.current.forEach((selfie) => {
       if (selfie.previewUrl) URL.revokeObjectURL(selfie.previewUrl);
     });
@@ -102,10 +130,20 @@ export default function GroupSelfieSearch({
     if (!cameraActive || !streamRef.current) return undefined;
 
     let cancelled = false;
+    const sessionId = cameraSessionIdRef.current;
+    const previewAbort = new AbortController();
+    cameraPreviewAbortRef.current?.abort();
+    cameraPreviewAbortRef.current = previewAbort;
+    const isSessionActive = () => (
+      !cancelled
+      && !previewAbort.signal.aborted
+      && cameraSessionIdRef.current === sessionId
+    );
 
     const attachCameraPreview = async () => {
       const video = videoRef.current;
       if (!video) {
+        if (!isSessionActive()) return;
         setCameraMessage('Preparando vista previa...');
         return;
       }
@@ -119,12 +157,12 @@ export default function GroupSelfieSearch({
           video.srcObject = streamRef.current;
         }
 
-        await waitForVideoMetadata(video);
-        if (cancelled) return;
+        await waitForVideoMetadata(video, previewAbort.signal);
+        if (!isSessionActive()) return;
         await video.play();
-        if (cancelled) return;
-        await waitForCameraFrame(video);
-        if (cancelled) return;
+        if (!isSessionActive()) return;
+        await waitForCameraFrame(video, previewAbort.signal, cameraFrameRequestRef);
+        if (!isSessionActive()) return;
 
         if (hasCameraFrame(video)) {
           setCameraPreviewReady(true);
@@ -138,7 +176,7 @@ export default function GroupSelfieSearch({
           stage: 'video.play',
           name: error?.name || 'UnknownError',
         });
-        if (cancelled) return;
+        if (!isSessionActive()) return;
         stopCamera();
         setCameraActive(false);
         setCameraPreviewReady(false);
@@ -150,6 +188,10 @@ export default function GroupSelfieSearch({
 
     return () => {
       cancelled = true;
+      previewAbort.abort();
+      if (cameraPreviewAbortRef.current === previewAbort) {
+        cameraPreviewAbortRef.current = null;
+      }
     };
   }, [cameraActive]);
 
@@ -181,6 +223,12 @@ export default function GroupSelfieSearch({
   const canAddMembers = groupSelfies.length < MAX_GROUP_SELFIES;
   const canSearch = validSelfies.length > 0 && searchStatus !== 'loading';
   const showRecoveryCard = searchStatus === 'done' && photos.length > 0 && groupResults.length === 0;
+  const canStartCamera = canAddMembers
+    && searchStatus !== 'loading'
+    && !cameraActive
+    && !cameraOpening
+    && !cameraCapturing
+    && validatingSelfiesCount === 0;
 
   const openFilePicker = () => fileInputRef.current?.click();
 
@@ -286,21 +334,39 @@ export default function GroupSelfieSearch({
 
   const startCamera = async () => {
     cancelBackgroundPrecache();
+    if (cameraStartingRef.current || cameraOpening || cameraActive || cameraCapturing) {
+      setCameraMessage('Preparando camara...');
+      return;
+    }
     if (!canAddMembers) {
       setCameraMessage('Ya cargaste el maximo de 5 integrantes.');
       return;
     }
     if (searchStatus === 'loading') return;
+    if (validatingSelfiesRef.current > 0 || validatingSelfiesCount > 0) {
+      setCameraMessage('Estamos validando la selfie anterior...');
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraMessage('No pudimos abrir la camara. Podes subir una foto desde tus archivos.');
       return;
     }
 
-    stopCamera();
+    stopCamera({ markClosing: false });
     setCameraPreviewReady(false);
+    setCameraOpening(true);
     setCameraMessage('Abriendo camara...');
+    const waitTime = Math.max(0, cameraClosingUntilRef.current - Date.now());
+    const sessionId = cameraSessionIdRef.current + 1;
+    cameraSessionIdRef.current = sessionId;
+    cameraStartingRef.current = true;
 
     try {
+      if (waitTime > 0) {
+        await waitForDelay(waitTime);
+        if (cameraSessionIdRef.current !== sessionId) return;
+      }
+
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -317,7 +383,14 @@ export default function GroupSelfieSearch({
         cameraSourceRef.current = 'fallback';
       }
 
+      if (cameraSessionIdRef.current !== sessionId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
+      cameraStartingRef.current = false;
+      setCameraOpening(false);
       setCameraActive(true);
       setCameraMessage('Preparando vista previa...');
     } catch (error) {
@@ -327,8 +400,14 @@ export default function GroupSelfieSearch({
       });
       stopCamera();
       setCameraActive(false);
+      setCameraOpening(false);
       setCameraPreviewReady(false);
       setCameraMessage(cameraErrorMessage(error));
+    } finally {
+      if (cameraSessionIdRef.current === sessionId) {
+        cameraStartingRef.current = false;
+        setCameraOpening(false);
+      }
     }
   };
 
@@ -341,7 +420,7 @@ export default function GroupSelfieSearch({
 
   const captureCameraSelfie = async () => {
     const video = videoRef.current;
-    if (!video || searchStatus === 'loading' || !canAddMembers) return;
+    if (!video || searchStatus === 'loading' || !canAddMembers || cameraCapturingRef.current) return;
     if (!cameraPreviewReady || !hasCameraFrame(video)) {
       setCameraMessage('Preparando camara...');
       console.warn('YakuExpress camera capture warning:', {
@@ -351,18 +430,33 @@ export default function GroupSelfieSearch({
       return;
     }
 
+    const sessionId = cameraSessionIdRef.current;
+    cameraCapturingRef.current = true;
+    setCameraCapturing(true);
+    setCameraMessage('Capturando selfie...');
     const width = video.videoWidth;
     const height = video.videoHeight;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
-    if (!context) return;
+    if (!context) {
+      cameraCapturingRef.current = false;
+      setCameraCapturing(false);
+      return;
+    }
 
     context.drawImage(video, 0, 0, width, height);
     const blob = await canvasToBlob(canvas);
     if (!blob) {
+      cameraCapturingRef.current = false;
+      setCameraCapturing(false);
       setCameraMessage('No pudimos capturar la selfie. Proba nuevamente.');
+      return;
+    }
+    if (cameraSessionIdRef.current !== sessionId) {
+      cameraCapturingRef.current = false;
+      setCameraCapturing(false);
       return;
     }
 
@@ -370,12 +464,16 @@ export default function GroupSelfieSearch({
     stopCamera();
     setCameraActive(false);
     setCameraPreviewReady(false);
-    setCameraMessage('Selfie capturada. Estamos buscando el rostro...');
+    cameraCapturingRef.current = false;
+    setCameraCapturing(false);
     addSelfieFiles([file]);
+    setCameraMessage('Estamos validando tu selfie...');
   };
 
   const validateGroupSelfie = async (selfie) => {
     cancelBackgroundPrecache();
+    validatingSelfiesRef.current += 1;
+    setValidatingSelfiesCount(validatingSelfiesRef.current);
     try {
       const faceapi = await prepareGroupFaceApi();
       const image = await loadImageElement(selfie.file);
@@ -411,6 +509,12 @@ export default function GroupSelfieSearch({
         message: 'No pudimos analizar esta selfie. Proba con otra foto clara.',
         descriptor: null,
       });
+    } finally {
+      validatingSelfiesRef.current = Math.max(0, validatingSelfiesRef.current - 1);
+      setValidatingSelfiesCount(validatingSelfiesRef.current);
+      if (validatingSelfiesRef.current === 0 && !streamRef.current) {
+        setCameraMessage('');
+      }
     }
   };
 
@@ -582,8 +686,8 @@ export default function GroupSelfieSearch({
             <button type="button" onClick={openFilePicker} disabled={!canAddMembers}>
               Subir foto
             </button>
-            <button type="button" className="ghost" onClick={startCamera} disabled={!canAddMembers || searchStatus === 'loading'}>
-              Tomar selfie
+            <button type="button" className="ghost" onClick={startCamera} disabled={!canStartCamera}>
+              {cameraOpening ? 'Abriendo camara...' : 'Tomar selfie'}
             </button>
             <button type="button" className="ghost" onClick={clearGroupSearch} disabled={!groupSelfies.length}>
               Limpiar busqueda
@@ -696,6 +800,7 @@ export default function GroupSelfieSearch({
               {showRecoveryCard && (
                 <GroupRecoveryCard
                   canAddMembers={canAddMembers}
+                  canTakeSelfie={canStartCamera}
                   onTakeSelfie={startCamera}
                   onUploadSelfie={openFilePicker}
                   onShowGallery={scrollToFullGallery}
@@ -810,6 +915,7 @@ function GroupResultGrid({
 
 function GroupRecoveryCard({
   canAddMembers,
+  canTakeSelfie,
   onTakeSelfie,
   onUploadSelfie,
   onShowGallery,
@@ -846,7 +952,7 @@ function GroupRecoveryCard({
       <div className="group-recovery-actions">
         {canAddMembers && (
           <>
-            <button type="button" onClick={onTakeSelfie}>
+            <button type="button" onClick={onTakeSelfie} disabled={!canTakeSelfie}>
               Tomar otra selfie
             </button>
             <button type="button" className="ghost" onClick={onUploadSelfie}>
@@ -1131,12 +1237,17 @@ function canvasToBlob(canvas) {
   });
 }
 
-function waitForVideoMetadata(video) {
+function waitForVideoMetadata(video, signal) {
   if (video.videoWidth > 0 && video.videoHeight > 0) {
     return Promise.resolve();
   }
 
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Camera session cancelled', 'AbortError'));
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
       cleanup();
       reject(new Error('VideoMetadataTimeout'));
@@ -1153,42 +1264,74 @@ function waitForVideoMetadata(video) {
       reject(new Error('VideoMetadataError'));
     };
 
+    const onAbort = () => {
+      cleanup();
+      reject(new DOMException('Camera session cancelled', 'AbortError'));
+    };
+
     function cleanup() {
       window.clearTimeout(timeoutId);
       video.removeEventListener('loadedmetadata', onReady);
       video.removeEventListener('loadeddata', onReady);
       video.removeEventListener('canplay', onReady);
       video.removeEventListener('error', onError);
+      signal?.removeEventListener('abort', onAbort);
     }
 
     video.addEventListener('loadedmetadata', onReady);
     video.addEventListener('loadeddata', onReady);
     video.addEventListener('canplay', onReady);
     video.addEventListener('error', onError);
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
 
-function waitForCameraFrame(video) {
+function waitForCameraFrame(video, signal, frameRequestRef) {
   if (hasCameraFrame(video)) {
     return Promise.resolve();
   }
 
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Camera session cancelled', 'AbortError'));
+      return;
+    }
+
     const startedAt = Date.now();
 
+    const cleanup = () => {
+      if (frameRequestRef?.current) {
+        window.cancelAnimationFrame(frameRequestRef.current);
+        frameRequestRef.current = null;
+      }
+      signal?.removeEventListener('abort', onAbort);
+    };
+
+    const onAbort = () => {
+      cleanup();
+      reject(new DOMException('Camera session cancelled', 'AbortError'));
+    };
+
     const checkFrame = () => {
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
       if (hasCameraFrame(video)) {
+        cleanup();
         resolve();
         return;
       }
       if (Date.now() - startedAt > 4000) {
+        cleanup();
         reject(new Error('VideoFrameTimeout'));
         return;
       }
-      window.requestAnimationFrame(checkFrame);
+      frameRequestRef.current = window.requestAnimationFrame(checkFrame);
     };
 
-    window.requestAnimationFrame(checkFrame);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    frameRequestRef.current = window.requestAnimationFrame(checkFrame);
   });
 }
 
@@ -1279,6 +1422,12 @@ function searchProgressPercent(progress) {
 function releaseUiThread() {
   return new Promise((resolve) => {
     window.setTimeout(resolve, 0);
+  });
+}
+
+function waitForDelay(milliseconds) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
   });
 }
 
