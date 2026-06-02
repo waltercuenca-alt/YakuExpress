@@ -11,11 +11,14 @@ export default function PhotoOrderSuccess({ order, onBack }) {
   const total = currentOrder.total_amount ?? currentOrder.total;
   const status = currentOrder.status || 'pending';
   const isCompleted = status === 'completed';
+  const selectedCount = currentOrder.selected_count ?? currentOrder.photo_count ?? items.length;
+  const packageType = currentOrder.package_type || currentOrder.photo_package || '';
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(orderCode)}`;
   const selectedLabels = useMemo(
     () => items.map((item) => `#${photoNumber(item)}`).join(', '),
     [items],
   );
+  const statusLabel = isCompleted ? 'Pago confirmado' : 'Esperando confirmacion de pago';
 
   const verifyPayment = async () => {
     setChecking(true);
@@ -67,28 +70,82 @@ export default function PhotoOrderSuccess({ order, onBack }) {
   return (
     <main className="photos-shell">
       <section className={`photo-success ${isCompleted ? 'completed' : 'pending'}`}>
-        <span>{isCompleted ? 'Pago confirmado' : 'Pedido generado'}</span>
-        <h1>{orderCode}</h1>
-        <p>{isCompleted ? 'Tus fotos HD estan listas' : 'Muestra este codigo en caja para confirmar tu compra.'}</p>
+        <header className="photo-success-hero">
+          <span className="photo-success-icon" aria-hidden="true">OK</span>
+          <div>
+            <small>{isCompleted ? 'Pago confirmado' : 'Pedido generado'}</small>
+            <h1>{isCompleted ? 'Tus fotos ya estan listas' : 'Tus recuerdos ya estan casi listos'}</h1>
+            <p>
+              {isCompleted
+                ? 'Tu compra fue confirmada. Ya podes descargar las fotos incluidas en este pedido.'
+                : 'Confirma tu compra en caja y recibi el acceso para descargar tus fotos de Yakupark.'}
+            </p>
+          </div>
+        </header>
+
         <div className="photo-success-layout">
-          <div className="photo-success-qr">
-            <img src={qrUrl} alt={`QR pedido ${orderCode}`} />
-          </div>
-          <div className="photo-success-summary">
-            <small>Codigo cliente</small>
-            <strong>{clientCode}</strong>
-            <small>Fotos</small>
-            <strong>{selectedLabels}</strong>
-            <small>Total</small>
-            <strong>{formatTotal(total)}</strong>
-            <small>Estado</small>
-            <strong>{isCompleted ? 'Pago confirmado' : 'Esperando confirmacion de pago'}</strong>
-          </div>
+          <section className="photo-success-code-card" aria-label="Codigo del pedido de fotos">
+            <span>Codigo de tu pedido</span>
+            <strong>{orderCode}</strong>
+            <p>{isCompleted ? 'Conserva este codigo como referencia de tu compra.' : 'Mostra este codigo en caja para confirmar tu compra.'}</p>
+            <div className="photo-success-qr">
+              <img src={qrUrl} alt={`QR pedido ${orderCode}`} />
+              <small>Mostralo en caja junto con tu codigo de pedido.</small>
+            </div>
+          </section>
+
+          <section className="photo-success-summary" aria-label="Resumen de compra">
+            <div className="photo-success-summary-head">
+              <small>Resumen de compra</small>
+              <strong>{formatTotal(total)}</strong>
+            </div>
+            <dl>
+              <div>
+                <dt>Fotos seleccionadas</dt>
+                <dd>{selectedCount}</dd>
+              </div>
+              {packageType && (
+                <div>
+                  <dt>Paquete</dt>
+                  <dd>{packageType}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Codigo cliente</dt>
+                <dd>{clientCode}</dd>
+              </div>
+              <div>
+                <dt>Estado</dt>
+                <dd>{statusLabel}</dd>
+              </div>
+            </dl>
+            <div className="photo-success-selected">
+              <small>Fotos elegidas</small>
+              <p>{selectedLabels || `${selectedCount} fotos seleccionadas`}</p>
+            </div>
+          </section>
         </div>
 
         {!isCompleted && (
+          <section className="photo-success-next-steps" aria-label="Proximos pasos">
+            <h2>Que sigue ahora?</h2>
+            <ol>
+              <li><span>1</span><p>Mostra tu codigo o QR en caja.</p></li>
+              <li><span>2</span><p>Confirma el pago de tus fotos seleccionadas.</p></li>
+              <li><span>3</span><p>Recibi el acceso para descargar tus recuerdos.</p></li>
+            </ol>
+          </section>
+        )}
+
+        {!isCompleted && (
+          <div className="photo-success-note">
+            Tus fotos seleccionadas quedaran asociadas a este pedido. Guarda tu codigo hasta finalizar la compra.
+          </div>
+        )}
+
+        {!isCompleted && (
           <div className="photo-payment-pending">
-            <strong>Tu pedido aun esta pendiente de confirmacion en caja</strong>
+            <strong>Tu pedido aun esta pendiente de confirmacion en caja.</strong>
             <button type="button" onClick={verifyPayment} disabled={checking}>
               {checking ? 'Verificando...' : 'Verificar pago'}
             </button>
@@ -117,7 +174,7 @@ export default function PhotoOrderSuccess({ order, onBack }) {
         )}
 
         {downloadMessage && <p className="photo-download-message">{downloadMessage}</p>}
-        <button type="button" onClick={onBack}>Elegir otras fotos</button>
+        <button className="photo-success-back" type="button" onClick={onBack}>Elegir otras fotos</button>
       </section>
     </main>
   );
