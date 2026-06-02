@@ -8,7 +8,7 @@ export default function PhotoGallery({ photos, selectedIds, onToggle, onOpen, wa
         return (
           <article className={`photo-card ${selected ? 'selected' : ''}`} key={photo.id}>
             <button className="photo-preview" type="button" onClick={() => onOpen(photo)}>
-              <img src={photo.thumbUrl} alt={`Foto ${photo.number} YakuPark`} loading="lazy" />
+              <img src={photo.thumbUrl} alt={`Foto ${photo.number} YakuPark`} loading="lazy" decoding="async" />
               <span className="photo-preview-number">#{photo.number}</span>
               {watermarkEnabled && (
                 <span className="photo-watermark" aria-hidden="true">

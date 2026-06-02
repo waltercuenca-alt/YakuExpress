@@ -62,7 +62,7 @@ export default function PhotoLightbox({
         )}
 
         <div className={`photo-lightbox-preview ${currentSelected ? 'selected' : ''}`}>
-          <img src={photo.fullUrl} alt={`Foto ${photo.number} ampliada`} />
+          <img src={photo.fullUrl} alt={`Foto ${photo.number} ampliada`} decoding="async" />
           {watermarkEnabled && (
             <span className="photo-watermark" aria-hidden="true">
               <b>YakuExpress Preview</b>
@@ -112,7 +112,7 @@ export default function PhotoLightbox({
                 aria-label={`Ver foto ${item.number}${selected ? ', seleccionada' : ''}`}
                 aria-current={active ? 'true' : undefined}
               >
-                <img src={item.thumbUrl || item.fullUrl} alt={`Miniatura foto ${item.number}`} />
+                <img src={item.thumbUrl || item.fullUrl} alt={`Miniatura foto ${item.number}`} loading="lazy" decoding="async" />
                 <span className="photo-filmstrip-number">#{item.number}</span>
                 {selected && <span className="photo-filmstrip-check" aria-hidden="true">&#10003;</span>}
               </button>
