@@ -50,10 +50,12 @@ export default function GroupSelfieSearch({
   const [faceApiMessage, setFaceApiMessage] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraMessage, setCameraMessage] = useState('');
+  const [cameraPreviewReady, setCameraPreviewReady] = useState(false);
   const [debugIAEnabled] = useState(() => isDebugIAEnabled());
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const cameraSourceRef = useRef('');
   const searchRunRef = useRef(0);
   const selfiesRef = useRef([]);
   const galleryFaceCacheRef = useRef(new Map());
@@ -64,11 +66,15 @@ export default function GroupSelfieSearch({
 
   const stopCamera = () => {
     if (videoRef.current) {
+      videoRef.current.pause();
       videoRef.current.srcObject = null;
+      videoRef.current.removeAttribute('src');
     }
-    if (!streamRef.current) return;
-    streamRef.current.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    cameraSourceRef.current = '';
   };
 
   const cancelBackgroundPrecache = () => {
@@ -93,9 +99,58 @@ export default function GroupSelfieSearch({
   }, []);
 
   useEffect(() => {
-    if (!cameraActive || !videoRef.current || !streamRef.current) return;
-    videoRef.current.srcObject = streamRef.current;
-    void videoRef.current.play();
+    if (!cameraActive || !streamRef.current) return undefined;
+
+    let cancelled = false;
+
+    const attachCameraPreview = async () => {
+      const video = videoRef.current;
+      if (!video) {
+        setCameraMessage('Preparando vista previa...');
+        return;
+      }
+
+      try {
+        setCameraPreviewReady(false);
+        setCameraMessage('Preparando vista previa...');
+        video.muted = true;
+        video.playsInline = true;
+        if (video.srcObject !== streamRef.current) {
+          video.srcObject = streamRef.current;
+        }
+
+        await waitForVideoMetadata(video);
+        if (cancelled) return;
+        await video.play();
+        if (cancelled) return;
+        await waitForCameraFrame(video);
+        if (cancelled) return;
+
+        if (hasCameraFrame(video)) {
+          setCameraPreviewReady(true);
+          setCameraMessage('Camara lista. Usa una selfie individual, con buena luz y rostro de frente.');
+        } else {
+          setCameraPreviewReady(false);
+          setCameraMessage('Preparando vista previa...');
+        }
+      } catch (error) {
+        console.warn('YakuExpress camera preview warning:', {
+          stage: 'video.play',
+          name: error?.name || 'UnknownError',
+        });
+        if (cancelled) return;
+        stopCamera();
+        setCameraActive(false);
+        setCameraPreviewReady(false);
+        setCameraMessage('No pudimos abrir la camara. Revisa el permiso de camara o subi una foto desde tus archivos.');
+      }
+    };
+
+    void attachCameraPreview();
+
+    return () => {
+      cancelled = true;
+    };
   }, [cameraActive]);
 
   useEffect(() => {
@@ -181,6 +236,7 @@ export default function GroupSelfieSearch({
     cancelBackgroundPrecache();
     stopCamera();
     setCameraActive(false);
+    setCameraPreviewReady(false);
     setCameraMessage('');
     setGroupSelfies((current) => {
       current.forEach((selfie) => {
@@ -197,6 +253,7 @@ export default function GroupSelfieSearch({
         cancelBackgroundPrecache();
         stopCamera();
         setCameraActive(false);
+        setCameraPreviewReady(false);
         setCameraMessage('');
       }
       return !open;
@@ -240,46 +297,62 @@ export default function GroupSelfieSearch({
     }
 
     stopCamera();
+    setCameraPreviewReady(false);
     setCameraMessage('Abriendo camara...');
 
     try {
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'user' },
-            width: { ideal: 960 },
-            height: { ideal: 1280 },
-          },
+          video: { facingMode: { ideal: 'user' } },
           audio: false,
         });
+        cameraSourceRef.current = 'frontal';
       } catch (frontCameraError) {
+        console.warn('YakuExpress camera getUserMedia warning:', {
+          stage: 'getUserMedia',
+          name: frontCameraError?.name || 'UnknownError',
+        });
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        cameraSourceRef.current = 'fallback';
       }
 
       streamRef.current = stream;
       setCameraActive(true);
-      setCameraMessage('Camara lista. Usa una selfie individual, con buena luz y rostro de frente.');
+      setCameraMessage('Preparando vista previa...');
     } catch (error) {
-      console.warn('YakuExpress group selfie camera error:', error);
+      console.warn('YakuExpress camera getUserMedia warning:', {
+        stage: 'getUserMedia',
+        name: error?.name || 'UnknownError',
+      });
       stopCamera();
       setCameraActive(false);
-      setCameraMessage('No pudimos abrir la camara. Podes subir una foto desde tus archivos.');
+      setCameraPreviewReady(false);
+      setCameraMessage(cameraErrorMessage(error));
     }
   };
 
   const cancelCamera = () => {
     stopCamera();
     setCameraActive(false);
+    setCameraPreviewReady(false);
     setCameraMessage('');
   };
 
   const captureCameraSelfie = async () => {
     const video = videoRef.current;
     if (!video || searchStatus === 'loading' || !canAddMembers) return;
+    if (!cameraPreviewReady || !hasCameraFrame(video)) {
+      setCameraMessage('Preparando camara...');
+      console.warn('YakuExpress camera capture warning:', {
+        stage: 'capture',
+        name: 'VideoFrameNotReady',
+      });
+      return;
+    }
 
-    const width = video.videoWidth || 720;
-    const height = video.videoHeight || 960;
+    const width = video.videoWidth;
+    const height = video.videoHeight;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -296,6 +369,7 @@ export default function GroupSelfieSearch({
     const file = new File([blob], `selfie-grupo-${Date.now()}.jpg`, { type: 'image/jpeg' });
     stopCamera();
     setCameraActive(false);
+    setCameraPreviewReady(false);
     setCameraMessage('Selfie capturada. Estamos buscando el rostro...');
     addSelfieFiles([file]);
   };
@@ -534,8 +608,8 @@ export default function GroupSelfieSearch({
               {cameraMessage && <strong>{cameraMessage}</strong>}
               {cameraActive && (
                 <div className="group-camera-actions">
-                  <button type="button" onClick={captureCameraSelfie} disabled={!canAddMembers || searchStatus === 'loading'}>
-                    Capturar selfie
+                  <button type="button" onClick={captureCameraSelfie} disabled={!canAddMembers || searchStatus === 'loading' || !cameraPreviewReady}>
+                    {cameraPreviewReady ? 'Capturar selfie' : 'Preparando camara...'}
                   </button>
                   <button type="button" className="ghost" onClick={cancelCamera}>
                     Cancelar
@@ -1055,6 +1129,78 @@ function canvasToBlob(canvas) {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
   });
+}
+
+function waitForVideoMetadata(video) {
+  if (video.videoWidth > 0 && video.videoHeight > 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('VideoMetadataTimeout'));
+    }, 6000);
+
+    const onReady = () => {
+      if (video.videoWidth <= 0 || video.videoHeight <= 0) return;
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error('VideoMetadataError'));
+    };
+
+    function cleanup() {
+      window.clearTimeout(timeoutId);
+      video.removeEventListener('loadedmetadata', onReady);
+      video.removeEventListener('loadeddata', onReady);
+      video.removeEventListener('canplay', onReady);
+      video.removeEventListener('error', onError);
+    }
+
+    video.addEventListener('loadedmetadata', onReady);
+    video.addEventListener('loadeddata', onReady);
+    video.addEventListener('canplay', onReady);
+    video.addEventListener('error', onError);
+  });
+}
+
+function waitForCameraFrame(video) {
+  if (hasCameraFrame(video)) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+
+    const checkFrame = () => {
+      if (hasCameraFrame(video)) {
+        resolve();
+        return;
+      }
+      if (Date.now() - startedAt > 4000) {
+        reject(new Error('VideoFrameTimeout'));
+        return;
+      }
+      window.requestAnimationFrame(checkFrame);
+    };
+
+    window.requestAnimationFrame(checkFrame);
+  });
+}
+
+function hasCameraFrame(video) {
+  return Boolean(video && video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2);
+}
+
+function cameraErrorMessage(error) {
+  if (error?.name === 'NotReadableError' || error?.name === 'TrackStartError') {
+    return 'La camara esta siendo utilizada por otra aplicacion. Cerrala y volve a intentar.';
+  }
+  return 'No pudimos abrir la camara. Revisa el permiso de camara o subi una foto desde tus archivos.';
 }
 
 function confidenceLabelFor(distance) {
