@@ -125,6 +125,7 @@ export default function GroupSelfieSearch({
   const validSelfies = groupSelfies.filter((selfie) => selfie.status === 'valid' && selfie.descriptor);
   const canAddMembers = groupSelfies.length < MAX_GROUP_SELFIES;
   const canSearch = validSelfies.length > 0 && searchStatus !== 'loading';
+  const showRecoveryCard = searchStatus === 'done' && photos.length > 0 && groupResults.length === 0;
 
   const openFilePicker = () => fileInputRef.current?.click();
 
@@ -595,9 +596,13 @@ export default function GroupSelfieSearch({
           {((searchStatus === 'loading' && groupResults.length > 0) || searchStatus === 'done' || searchStatus === 'error') && (
             <section className={`group-selfie-results ${searchStatus === 'error' ? 'is-error' : ''}`}>
               <small>Busqueda experimental</small>
-              <h3>Encontramos posibles fotos de tu grupo</h3>
-              <p>Revisa las fotos antes de comprar. El reconocimiento puede fallar si hay agua, lentes, poca luz o rostros de perfil.</p>
-              <p>No podemos asegurar que todas sean correctas. Revisa antes de comprar.</p>
+              <h3>{showRecoveryCard ? 'No encontramos fotos claras todavia' : 'Encontramos posibles fotos de tu grupo'}</h3>
+              {groupResults.length > 0 && (
+                <>
+                  <p>Revisa las fotos antes de comprar. El reconocimiento puede fallar si hay agua, lentes, poca luz o rostros de perfil.</p>
+                  <p>No podemos asegurar que todas sean correctas. Revisa antes de comprar.</p>
+                </>
+              )}
               <strong>{searchMessage}</strong>
 
               {groupResults.length > 0 && (
@@ -611,6 +616,16 @@ export default function GroupSelfieSearch({
                   selectedCount={selectedIds.length}
                   debugIAEnabled={debugIAEnabled}
                   isSearching={searchStatus === 'loading'}
+                />
+              )}
+
+              {showRecoveryCard && (
+                <GroupRecoveryCard
+                  canAddMembers={canAddMembers}
+                  onTakeSelfie={startCamera}
+                  onUploadSelfie={openFilePicker}
+                  onShowGallery={scrollToFullGallery}
+                  onClearSearch={clearGroupSearch}
                 />
               )}
             </section>
@@ -649,13 +664,6 @@ function GroupResultGrid({
     });
   };
 
-  const showFullGallery = () => {
-    document.querySelector('.photos-results')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
-  };
-
   return (
     <div className="group-result-section">
       <div className="group-result-heading">
@@ -682,7 +690,7 @@ function GroupResultGrid({
           <button type="button" className="ghost" onClick={removeRecommendedPhotos} disabled={isSearching || !hasSelectedRecommended}>
             Quitar recomendadas
           </button>
-          <button type="button" className="ghost" onClick={showFullGallery}>
+          <button type="button" className="ghost" onClick={scrollToFullGallery}>
             Ver galeria completa
           </button>
         </div>
@@ -722,6 +730,65 @@ function GroupResultGrid({
         })}
       </div>
       <p className="group-result-tip">Tip: si encontraste varias fotos, podes elegirlas y continuar con tu pedido.</p>
+    </div>
+  );
+}
+
+function GroupRecoveryCard({
+  canAddMembers,
+  onTakeSelfie,
+  onUploadSelfie,
+  onShowGallery,
+  onClearSearch,
+}) {
+  return (
+    <div className="group-recovery-card" aria-label="Opciones para seguir buscando fotos">
+      <div className="group-recovery-copy">
+        <span aria-hidden="true">IA</span>
+        <div>
+          <h4>No encontramos fotos claras todavia</h4>
+          <p>
+            Proba con otra selfie de frente, con buena luz, o agrega otro integrante de tu grupo.
+            Tambien podes revisar la galeria completa.
+          </p>
+          <small>Las selfies nitidas ayudan a encontrar mejores coincidencias.</small>
+        </div>
+      </div>
+
+      <div className="group-recovery-tips" aria-label="Consejos para mejores selfies">
+        <span>Rostro de frente</span>
+        <span>Buena iluminacion</span>
+        <span>Una persona por selfie</span>
+        <span>Sin lentes oscuros si es posible</span>
+      </div>
+
+      {!canAddMembers && (
+        <p className="group-recovery-limit">
+          Ya agregaste el maximo de integrantes. Podes limpiar la busqueda y probar con selfies mas claras,
+          o revisar la galeria completa.
+        </p>
+      )}
+
+      <div className="group-recovery-actions">
+        {canAddMembers && (
+          <>
+            <button type="button" onClick={onTakeSelfie}>
+              Tomar otra selfie
+            </button>
+            <button type="button" className="ghost" onClick={onUploadSelfie}>
+              Subir otra foto
+            </button>
+          </>
+        )}
+        <button type="button" className="ghost" onClick={onShowGallery}>
+          Ver galeria completa
+        </button>
+        {!canAddMembers && (
+          <button type="button" className="ghost" onClick={onClearSearch}>
+            Limpiar busqueda
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -775,6 +842,13 @@ function SuggestedPackageCard({ recommendedCount, selectedCount }) {
       </div>
     </aside>
   );
+}
+
+function scrollToFullGallery() {
+  document.querySelector('.photos-results')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
 }
 
 function detectSelfieFaceDescriptors(faceapi, image) {
