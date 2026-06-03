@@ -33,6 +33,10 @@ export default function Fotos({ navigate, path = '' }) {
     () => photoPackageFor(selectedPhotos.length, photos.length),
     [selectedPhotos.length, photos.length],
   );
+  const mobileCheckoutVisible = selectedPhotos.length > 0 && !summaryOpen && !activePhoto;
+  const mobileCheckoutLabel = selectedPhotos.length === 1
+    ? '1 foto seleccionada'
+    : `${selectedPhotos.length} fotos seleccionadas`;
 
   useEffect(() => {
     if (routeCode && routeCode !== searchedCode) {
@@ -176,7 +180,7 @@ export default function Fotos({ navigate, path = '' }) {
   }
 
   return (
-    <main className="photos-shell">
+    <main className={`photos-shell ${mobileCheckoutVisible ? 'has-mobile-checkout' : ''}`.trim()}>
       <section className="photos-poster">
         <header className="photos-poster-head">
           <div className="photos-logo">Yaku<br />Park</div>
@@ -258,6 +262,15 @@ export default function Fotos({ navigate, path = '' }) {
         </footer>
       </section>
 
+      {mobileCheckoutVisible && (
+        <aside className="mobile-photo-checkout" aria-label="Continuar con el pedido de fotos" aria-live="polite">
+          <strong>{mobileCheckoutLabel}</strong>
+          <button type="button" onClick={() => setSummaryOpen(true)}>
+            Continuar con mi pedido
+          </button>
+        </aside>
+      )}
+
       {summaryOpen && (
         <PhotoSummaryModal
           customerCode={searchedCode}
@@ -335,3 +348,4 @@ function PhotoLoading() {
     </div>
   );
 }
+
