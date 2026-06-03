@@ -674,6 +674,25 @@ export default function GroupSelfieSearch({
 
       {panelOpen && (
         <div className="group-selfie-panel">
+          <div className={`group-selfie-guide ${groupSelfies.length ? 'is-compact' : ''}`}>
+            <div className="group-selfie-guide-copy">
+              <span aria-hidden="true">Selfie clara</span>
+              <div>
+                <strong>Toma una selfie clara para encontrar mejor tus fotos</strong>
+                <p>Usamos una selfie por integrante para buscar posibles coincidencias en la galeria.</p>
+              </div>
+            </div>
+            <div className="group-selfie-guide-tips" aria-label="Consejos para una mejor selfie">
+              <span>Rostro de frente</span>
+              <span>Buena iluminacion</span>
+              <span>Una persona por selfie</span>
+              <span>Sin lentes oscuros si es posible</span>
+            </div>
+            <p className="group-selfie-privacy">
+              Tus selfies se usan solo para esta busqueda en tu navegador. No se guardan ni se suben.
+            </p>
+          </div>
+
           <div className="group-selfie-toolbar">
             <input
               ref={fileInputRef}
@@ -696,10 +715,6 @@ export default function GroupSelfieSearch({
               Ver galeria completa
             </button>
           </div>
-
-          <p className="group-selfie-privacy">
-            Tus selfies se usan solo para esta busqueda en tu navegador. No se guardan ni se suben.
-          </p>
 
           {(cameraActive || cameraMessage) && (
             <div className="group-camera-card" aria-live="polite">
