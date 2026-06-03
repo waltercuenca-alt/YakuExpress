@@ -779,6 +779,7 @@ export default function GroupSelfieSearch({
               <span />
               <div>
                 <strong>{searchProgressLabel(searchProgress)}</strong>
+                <small>{searchProgressDetail(searchProgress)}</small>
                 <div className="group-progress-track" aria-hidden="true">
                   <i style={{ width: `${searchProgressPercent(searchProgress)}%` }} />
                 </div>
@@ -1186,15 +1187,21 @@ function compareRecommendedResults(left, right) {
 }
 
 function groupResultsMessage(results) {
-  if (results.length) {
-    return `Encontramos ${results.length} fotos recomendadas de tu grupo.`;
+  if (results.length === 1) {
+    return 'Encontramos 1 foto recomendada de tu grupo. Revisala antes de comprar.';
   }
-  return 'No encontramos coincidencias claras para este grupo. Proba con selfies mas iluminadas o revisa la galeria completa.';
+  if (results.length > 1) {
+    return `Encontramos ${results.length} fotos recomendadas de tu grupo. Revisalas antes de comprar y elegí tus favoritas.`;
+  }
+  return 'No encontramos coincidencias claras para este grupo. Probá con selfies más iluminadas o revisá la galería completa.';
 }
 
 function partialGroupResultsMessage(results) {
   if (!results.length) return '';
-  return `Ya encontramos ${results.length} fotos recomendadas. Seguimos revisando la galeria.`;
+  if (results.length === 1) {
+    return 'Ya encontramos 1 foto recomendada. Seguimos revisando la galería para encontrar más posibles fotos.';
+  }
+  return `Ya encontramos ${results.length} fotos recomendadas. Seguimos revisando la galería para encontrar más posibles fotos.`;
 }
 
 function packageMessageForRecommended(count) {
@@ -1424,9 +1431,13 @@ function isDebugIAEnabled() {
   return new URLSearchParams(window.location.search).get('debugIA') === '1';
 }
 
-function searchProgressLabel(progress) {
-  if (!progress?.total) return 'Analizando posibles fotos del grupo...';
-  return `Analizando fotos del grupo... ${progress.current} de ${progress.total}`;
+function searchProgressLabel() {
+  return 'Buscando fotos recomendadas de tu grupo...';
+}
+
+function searchProgressDetail(progress) {
+  if (!progress?.total) return 'Preparando la revisión de la galería.';
+  return `Revisando ${progress.current} de ${progress.total} fotos`;
 }
 
 function searchProgressPercent(progress) {
