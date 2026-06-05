@@ -11,6 +11,19 @@ function booleanValue(value) {
   return value === true || value === 'true';
 }
 
+export function normalizeCustomerWhatsapp(value) {
+  return String(value || '')
+    .replace(/[^\d+\-()\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function maskCustomerWhatsapp(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return `******${digits.slice(-3)}`;
+}
+
 function readAllLocalRecords() {
   if (typeof window === 'undefined') return [];
   try {
@@ -34,6 +47,9 @@ function buildLocalId() {
 function normalizeTurnRecord(record, storage = 'localStorage') {
   const fullPassCount = numberValue(record.fullPassCount ?? record.full_pass_count);
   const hasFreePhotoBenefit = fullPassCount > 0;
+  const customerWhatsapp = hasFreePhotoBenefit
+    ? normalizeCustomerWhatsapp(record.customerWhatsapp ?? record.customer_whatsapp)
+    : '';
   return {
     id: record.id || buildLocalId(),
     date: record.date || record.record_date || '',
@@ -49,6 +65,7 @@ function normalizeTurnRecord(record, storage = 'localStorage') {
     hasFreePhotoBenefit,
     freePhotoRedeemed: hasFreePhotoBenefit ? booleanValue(record.freePhotoRedeemed ?? record.free_photo_redeemed) : false,
     purchasedExtraPhotos: booleanValue(record.purchasedExtraPhotos ?? record.purchased_extra_photos),
+    customerWhatsapp,
     notes: String(record.notes || '').trim(),
     createdAt: record.createdAt || record.created_at || new Date().toISOString(),
     updatedAt: record.updatedAt || record.updated_at || null,
@@ -73,6 +90,7 @@ export function normalizeTurnRecordForDb(record) {
     has_free_photo_benefit: normalized.hasFreePhotoBenefit,
     free_photo_redeemed: normalized.freePhotoRedeemed,
     purchased_extra_photos: normalized.purchasedExtraPhotos,
+    customer_whatsapp: normalized.fullPassCount > 0 && normalized.customerWhatsapp ? normalized.customerWhatsapp : null,
     notes: normalized.notes || null,
     source: 'registro-turno',
   };
@@ -84,7 +102,7 @@ function normalizeDbRecord(row) {
 
 function isExpectedSupabaseSetupError(error) {
   const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''} ${error?.code || ''}`.toLowerCase();
-  return /turn_records|schema cache|does not exist|relation|42p01|pgrst/i.test(message);
+  return /turn_records|customer_whatsapp|schema cache|does not exist|relation|column|42p01|42703|pgrst/i.test(message);
 }
 
 export function saveTurnRecordLocal(record) {

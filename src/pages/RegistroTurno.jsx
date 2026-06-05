@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { listTurnRecordsByDate, saveTurnRecord } from '../services/turnRecordsService.js';
+import { listTurnRecordsByDate, maskCustomerWhatsapp, normalizeCustomerWhatsapp, saveTurnRecord } from '../services/turnRecordsService.js';
 
 const TURN_OPTIONS = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
 const MONTH_NAMES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
@@ -62,6 +62,7 @@ export default function RegistroTurno() {
   const [totalTouched, setTotalTouched] = useState(false);
   const [freePhotoRedeemed, setFreePhotoRedeemed] = useState(false);
   const [purchasedExtraPhotos, setPurchasedExtraPhotos] = useState(false);
+  const [customerWhatsapp, setCustomerWhatsapp] = useState('');
   const [notes, setNotes] = useState('');
   const [records, setRecords] = useState([]);
   const [lastRecord, setLastRecord] = useState(null);
@@ -83,7 +84,10 @@ export default function RegistroTurno() {
   }, [calculatedPeople, totalTouched]);
 
   useEffect(() => {
-    if (!hasFreePhotoBenefit) setFreePhotoRedeemed(false);
+    if (!hasFreePhotoBenefit) {
+      setFreePhotoRedeemed(false);
+      setCustomerWhatsapp('');
+    }
   }, [hasFreePhotoBenefit]);
 
   useEffect(() => {
@@ -112,8 +116,9 @@ export default function RegistroTurno() {
     const benefitGroups = records.filter((record) => record.hasFreePhotoBenefit).length;
     const redeemed = records.filter((record) => record.freePhotoRedeemed).length;
     const extraPhotos = records.filter((record) => record.purchasedExtraPhotos).length;
+    const whatsappRecords = records.filter((record) => record.customerWhatsapp).length;
     const fullPassRate = people ? Math.round((fullPass / people) * 100) : 0;
-    return { people, fullPass, benefitGroups, redeemed, extraPhotos, fullPassRate };
+    return { people, fullPass, benefitGroups, redeemed, extraPhotos, whatsappRecords, fullPassRate };
   }, [records]);
 
   const refreshRecords = async () => {
@@ -156,6 +161,7 @@ export default function RegistroTurno() {
     const safeFullPassCount = numberValue(counts.fullPassCount);
     const safeHasFreePhotoBenefit = safeFullPassCount > 0;
     const safeTotalPeople = Math.max(numberValue(totalPeople), calculatedPeople);
+    const safeCustomerWhatsapp = safeHasFreePhotoBenefit ? normalizeCustomerWhatsapp(customerWhatsapp) : '';
     const record = {
       id: buildId(),
       date,
@@ -171,6 +177,7 @@ export default function RegistroTurno() {
       hasFreePhotoBenefit: safeHasFreePhotoBenefit,
       freePhotoRedeemed: safeHasFreePhotoBenefit ? freePhotoRedeemed : false,
       purchasedExtraPhotos,
+      customerWhatsapp: safeCustomerWhatsapp,
       notes: notes.trim(),
       createdAt: new Date().toISOString(),
     };
@@ -191,6 +198,7 @@ export default function RegistroTurno() {
       setNotes('');
       setFreePhotoRedeemed(false);
       setPurchasedExtraPhotos(false);
+      setCustomerWhatsapp('');
       setTotalTouched(false);
       setTotalPeople(0);
       setPhotoCodeTouched(false);
@@ -284,6 +292,22 @@ export default function RegistroTurno() {
             {hasFreePhotoBenefit && <em>Foto gratis incluida</em>}
           </div>
 
+          {hasFreePhotoBenefit && (
+            <label className="turn-whatsapp-field">
+              <span>WhatsApp para foto gratis</span>
+              <input
+                type="tel"
+                value={customerWhatsapp}
+                onChange={(event) => setCustomerWhatsapp(event.target.value)}
+                placeholder="Ej. 999 999 999"
+                inputMode="tel"
+              />
+              <small>Opcional. Se usará solo para coordinar la foto gratis incluida en el Full Pass.</small>
+            </label>
+          )}
+
+          <p className="turn-privacy-note">No pedimos DNI, nombres completos, selfies ni datos faciales en este registro.</p>
+
           <div className="turn-commercial-switches">
             <label className={!hasFreePhotoBenefit ? 'disabled' : ''}>
               <input
@@ -331,6 +355,7 @@ export default function RegistroTurno() {
               <div><strong>{selectedDateSummary.fullPassRate}%</strong><span>Full Pass / personas</span></div>
               <div><strong>{selectedDateSummary.redeemed}</strong><span>Fotos gratis usadas</span></div>
               <div><strong>{selectedDateSummary.extraPhotos}</strong><span>Compraron fotos extra</span></div>
+              <div><strong>{selectedDateSummary.whatsappRecords}</strong><span>WhatsApp registrados</span></div>
             </div>
           </section>
 
@@ -339,10 +364,12 @@ export default function RegistroTurno() {
               <span>Último registro</span>
               <strong>{lastRecord.photoCode}</strong>
               <p>{lastRecord.totalPeople} personas · {lastRecord.fullPassCount} Full Pass · Foto gratis: {lastRecord.hasFreePhotoBenefit ? 'Sí' : 'No'}</p>
+              <p className="turn-contact-badge">WhatsApp: {lastRecord.customerWhatsapp ? `Registrado ${maskCustomerWhatsapp(lastRecord.customerWhatsapp)}` : 'Sin registrar'}</p>
               <div className="turn-record-badges">
                 <span>{lastRecord.storage === 'supabase' ? 'Nube' : 'Este dispositivo'}</span>
                 {lastRecord.freePhotoRedeemed && <span>Foto gratis usada</span>}
                 {lastRecord.purchasedExtraPhotos && <span>Compró fotos extra</span>}
+                <span>{lastRecord.customerWhatsapp ? 'WhatsApp registrado' : 'Sin WhatsApp'}</span>
               </div>
             </section>
           )}
@@ -368,17 +395,20 @@ export default function RegistroTurno() {
                   <span>{record.turnTime}</span>
                   <strong>{record.photoCode}</strong>
                   <small>{record.notes || 'Sin notas'}</small>
+                  {record.customerWhatsapp && <small className="turn-contact-badge">WhatsApp: registrado {maskCustomerWhatsapp(record.customerWhatsapp)}</small>}
                   <div className="turn-record-badges">
                     <span>{record.storage === 'supabase' ? 'Nube' : 'Este dispositivo'}</span>
                     {record.hasFreePhotoBenefit && <span>Foto gratis incluida</span>}
                     {record.freePhotoRedeemed && <span>Foto gratis usada</span>}
                     {record.purchasedExtraPhotos && <span>Compró fotos extra</span>}
+                    <span>{record.customerWhatsapp ? 'WhatsApp registrado' : 'Sin WhatsApp'}</span>
                   </div>
                 </div>
                 <dl>
                   <div><dt>Personas</dt><dd>{record.totalPeople}</dd></div>
                   <div><dt>Full Pass</dt><dd>{record.fullPassCount}</dd></div>
                   <div><dt>Foto gratis</dt><dd>{record.hasFreePhotoBenefit ? 'Sí' : 'No'}</dd></div>
+                  <div><dt>WhatsApp</dt><dd>{record.customerWhatsapp ? 'Registrado' : 'Sin registrar'}</dd></div>
                 </dl>
               </article>
             ))}

@@ -4810,3 +4810,61 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .turn-records-header { flex-direction: column; }
   .turn-records-header button { width: 100%; min-height: 46px; }
 }
+/* Fase 8C - WhatsApp opcional para foto gratis Full Pass */
+.turn-whatsapp-field {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0;
+  border: 1px solid rgba(0, 143, 170, .2);
+  border-radius: 18px;
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(0, 178, 213, .1), rgba(255, 255, 255, .92));
+  color: #334e6e;
+  font-size: .88rem;
+  font-weight: 850;
+}
+.turn-whatsapp-field input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 78, 145, .18);
+  border-radius: 15px;
+  padding: 12px 13px;
+  background: #fff;
+  color: #082449;
+  font: inherit;
+  outline: none;
+}
+.turn-whatsapp-field input:focus {
+  border-color: rgba(0, 178, 213, .6);
+  box-shadow: 0 0 0 4px rgba(0, 178, 213, .14);
+}
+.turn-whatsapp-field small,
+.turn-privacy-note {
+  margin: 0;
+  color: #61778f;
+  font-size: .8rem;
+  line-height: 1.35;
+}
+.turn-privacy-note {
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 29, 85, .045);
+}
+.turn-contact-badge {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(0, 29, 85, .06);
+  color: #334e6e;
+  font-size: .76rem;
+  font-weight: 900;
+}
+.turn-record-item .turn-contact-badge {
+  display: inline-flex;
+  margin-top: 7px;
+}
+@media (max-width: 420px) {
+  .turn-whatsapp-field { padding: 12px; }
+}

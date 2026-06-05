@@ -298,6 +298,7 @@ create table if not exists public.turn_records (
   free_photo_redeemed boolean not null default false,
   purchased_extra_photos boolean not null default false,
   notes text,
+  customer_whatsapp text,
   source text not null default 'registro-turno',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -313,6 +314,11 @@ create index if not exists turn_records_turn_time_idx
   on public.turn_records (turn_time);
 
 alter table public.turn_records enable row level security;
+alter table public.turn_records
+  add column if not exists customer_whatsapp text;
+
+comment on column public.turn_records.customer_whatsapp is
+  'WhatsApp opcional informado por el grupo para coordinar foto gratis Full Pass. No usar para datos sensibles.';
 
 drop policy if exists "turn_records_insert_anon_authenticated" on public.turn_records;
 create policy "turn_records_insert_anon_authenticated"
