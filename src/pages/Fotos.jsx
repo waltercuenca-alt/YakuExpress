@@ -214,6 +214,25 @@ export default function Fotos({ navigate, path = '' }) {
           watermarkEnabled={watermarkEnabled}
         />
 
+        <section className="photo-buying-guide" aria-label="Cómo recibir tus fotos">
+          <div className="photo-buying-guide__header">
+            <span>Proceso simple</span>
+            <div>
+              <h2 className="photo-buying-guide__title">¿Cómo recibís tus fotos?</h2>
+              <p className="photo-buying-guide__text">
+                Seleccioná tus fotos favoritas, generá tu pedido y mostrale el código a caja. Cuando el pago sea confirmado, recibirás tu link privado de descarga.
+              </p>
+            </div>
+          </div>
+          <ol className="photo-buying-guide__steps">
+            <li className="photo-buying-guide__step"><b>1</b><span>Seleccioná tus fotos favoritas.</span></li>
+            <li className="photo-buying-guide__step"><b>2</b><span>Dejá tu WhatsApp para crear el pedido.</span></li>
+            <li className="photo-buying-guide__step"><b>3</b><span>Mostrá el código del pedido en caja.</span></li>
+            <li className="photo-buying-guide__step"><b>4</b><span>Cuando caja confirme el pago, recibís tu link privado de descarga.</span></li>
+          </ol>
+          <p className="photo-buying-guide__note">El link privado se habilita solo cuando el pedido está confirmado en caja.</p>
+        </section>
+
         <section className="photos-poster-body">
           <div className="photos-results">
             <div className="photos-results-head">
