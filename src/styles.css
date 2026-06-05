@@ -4719,3 +4719,94 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .turn-summary-grid { grid-template-columns: 1fr; }
   .turn-record-item dl { grid-template-columns: 1fr; }
 }
+/* Fase 8B - Estado de guardado y medicion comercial de turnos */
+.turn-commercial-switches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.turn-commercial-switches label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(0, 78, 145, .12);
+  border-radius: 16px;
+  padding: 12px;
+  background: #fff;
+  color: #001d55;
+  font-weight: 900;
+}
+.turn-commercial-switches label.disabled {
+  opacity: .58;
+  background: #f4f7fa;
+}
+.turn-commercial-switches input {
+  width: 22px;
+  height: 22px;
+  accent-color: #008faa;
+}
+.turn-benefit-card em {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(0, 143, 170, .12);
+  color: #006f82;
+  font-size: .76rem;
+  font-style: normal;
+  font-weight: 950;
+}
+.turn-register-submit:disabled,
+.turn-records-header button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+.turn-register-message.warning {
+  background: rgba(255, 206, 0, .2);
+  color: #835400;
+}
+.turn-register-message.error {
+  background: rgba(204, 45, 45, .1);
+  color: #9b1c1c;
+}
+.turn-records-header {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+  justify-content: space-between;
+}
+.turn-records-header button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #001d55;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 950;
+  white-space: nowrap;
+}
+.turn-record-source {
+  margin: -6px 0 14px;
+  color: #61778f;
+  font-size: .88rem;
+  font-weight: 850;
+}
+.turn-record-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.turn-record-badges span {
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(0, 178, 213, .12);
+  color: #006f82;
+  font-size: .68rem;
+  font-weight: 950;
+}
+@media (max-width: 860px) {
+  .turn-commercial-switches { grid-template-columns: 1fr; }
+  .turn-records-header { flex-direction: column; }
+  .turn-records-header button { width: 100%; min-height: 46px; }
+}

@@ -279,3 +279,68 @@ $$;
 
 revoke all on function public.get_paid_photo_download(uuid) from public;
 grant execute on function public.get_paid_photo_download(uuid) to anon, authenticated;
+-- Turn records / registros de turnos
+-- Fase 8B.1 aplicada con RLS conservador: anon/authenticated solo pueden insertar y leer.
+
+create table if not exists public.turn_records (
+  id uuid primary key default gen_random_uuid(),
+  record_date date not null,
+  turn_time text not null,
+  photo_code text not null,
+  total_people integer not null default 0 check (total_people >= 0),
+  standard_count integer not null default 0 check (standard_count >= 0),
+  full_pass_count integer not null default 0 check (full_pass_count >= 0),
+  kids_count integer not null default 0 check (kids_count >= 0),
+  premium_kids_count integer not null default 0 check (premium_kids_count >= 0),
+  full_day_count integer not null default 0 check (full_day_count >= 0),
+  yakutobogan_count integer not null default 0 check (yakutobogan_count >= 0),
+  has_free_photo_benefit boolean not null default false,
+  free_photo_redeemed boolean not null default false,
+  purchased_extra_photos boolean not null default false,
+  notes text,
+  source text not null default 'registro-turno',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists turn_records_record_date_idx
+  on public.turn_records (record_date);
+
+create index if not exists turn_records_photo_code_idx
+  on public.turn_records (photo_code);
+
+create index if not exists turn_records_turn_time_idx
+  on public.turn_records (turn_time);
+
+alter table public.turn_records enable row level security;
+
+drop policy if exists "turn_records_insert_anon_authenticated" on public.turn_records;
+create policy "turn_records_insert_anon_authenticated"
+  on public.turn_records
+  for insert
+  to anon, authenticated
+  with check (
+    total_people >= 0
+    and standard_count >= 0
+    and full_pass_count >= 0
+    and kids_count >= 0
+    and premium_kids_count >= 0
+    and full_day_count >= 0
+    and yakutobogan_count >= 0
+    and photo_code <> ''
+    and source = 'registro-turno'
+  );
+
+drop policy if exists "turn_records_select_anon_authenticated" on public.turn_records;
+create policy "turn_records_select_anon_authenticated"
+  on public.turn_records
+  for select
+  to anon, authenticated
+  using (true);
+
+revoke all on table public.turn_records from public;
+revoke all on table public.turn_records from anon;
+revoke all on table public.turn_records from authenticated;
+
+grant select, insert on public.turn_records to anon;
+grant select, insert on public.turn_records to authenticated;

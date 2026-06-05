@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { listTurnRecordsByDate, saveTurnRecord } from '../services/turnRecordsService.js';
 
-const STORAGE_KEY = 'yaku_turn_records_v1';
 const TURN_OPTIONS = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
 const MONTH_NAMES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 const EMPTY_COUNTS = {
@@ -34,21 +34,6 @@ function createPhotoCode(dateValue, turnTime) {
   return `${String(day).padStart(2, '0')}${MONTH_NAMES[month - 1] || ''}-${time}`;
 }
 
-function readRecords() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    const parsed = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeRecords(records) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-}
-
 function numberValue(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
@@ -75,34 +60,76 @@ export default function RegistroTurno() {
   const [counts, setCounts] = useState(EMPTY_COUNTS);
   const [totalPeople, setTotalPeople] = useState(0);
   const [totalTouched, setTotalTouched] = useState(false);
+  const [freePhotoRedeemed, setFreePhotoRedeemed] = useState(false);
+  const [purchasedExtraPhotos, setPurchasedExtraPhotos] = useState(false);
   const [notes, setNotes] = useState('');
   const [records, setRecords] = useState([]);
   const [lastRecord, setLastRecord] = useState(null);
   const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    setRecords(readRecords());
-  }, []);
-
-  useEffect(() => {
-    if (!photoCodeTouched) setPhotoCode(createPhotoCode(date, turnTime));
-  }, [date, turnTime, photoCodeTouched]);
+  const [messageTone, setMessageTone] = useState('success');
+  const [recordsStorage, setRecordsStorage] = useState('localStorage');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
 
   const calculatedPeople = useMemo(() => Object.values(counts).reduce((sum, value) => sum + numberValue(value), 0), [counts]);
   const hasFreePhotoBenefit = counts.fullPassCount > 0;
 
   useEffect(() => {
+    if (!photoCodeTouched) setPhotoCode(createPhotoCode(date, turnTime));
+  }, [date, turnTime, photoCodeTouched]);
+
+  useEffect(() => {
     if (!totalTouched) setTotalPeople(calculatedPeople);
   }, [calculatedPeople, totalTouched]);
 
-  const selectedDateRecords = useMemo(() => records.filter((record) => record.date === date), [records, date]);
+  useEffect(() => {
+    if (!hasFreePhotoBenefit) setFreePhotoRedeemed(false);
+  }, [hasFreePhotoBenefit]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadRecords() {
+      setIsLoadingRecords(true);
+      const result = await listTurnRecordsByDate(date);
+      if (!active) return;
+      if (result.ok) {
+        setRecords(result.data);
+        setRecordsStorage(result.storage);
+      } else {
+        setRecords([]);
+        setMessageTone('error');
+        setMessage('No pudimos cargar los registros. Revisá la conexión e intentá nuevamente.');
+      }
+      setIsLoadingRecords(false);
+    }
+    loadRecords();
+    return () => { active = false; };
+  }, [date]);
+
   const selectedDateSummary = useMemo(() => {
-    const people = selectedDateRecords.reduce((sum, record) => sum + numberValue(record.totalPeople), 0);
-    const fullPass = selectedDateRecords.reduce((sum, record) => sum + numberValue(record.fullPassCount), 0);
-    const benefitGroups = selectedDateRecords.filter((record) => record.hasFreePhotoBenefit).length;
+    const people = records.reduce((sum, record) => sum + numberValue(record.totalPeople), 0);
+    const fullPass = records.reduce((sum, record) => sum + numberValue(record.fullPassCount), 0);
+    const benefitGroups = records.filter((record) => record.hasFreePhotoBenefit).length;
+    const redeemed = records.filter((record) => record.freePhotoRedeemed).length;
+    const extraPhotos = records.filter((record) => record.purchasedExtraPhotos).length;
     const fullPassRate = people ? Math.round((fullPass / people) * 100) : 0;
-    return { people, fullPass, benefitGroups, fullPassRate };
-  }, [selectedDateRecords]);
+    return { people, fullPass, benefitGroups, redeemed, extraPhotos, fullPassRate };
+  }, [records]);
+
+  const refreshRecords = async () => {
+    setIsLoadingRecords(true);
+    const result = await listTurnRecordsByDate(date);
+    if (result.ok) {
+      setRecords(result.data);
+      setRecordsStorage(result.storage);
+      setMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
+      setMessage(result.storage === 'supabase' ? 'Registros actualizados desde la nube.' : 'Registros actualizados desde este dispositivo. La nube todavía no está disponible.');
+    } else {
+      setMessageTone('error');
+      setMessage('No pudimos cargar los registros. Revisá la conexión e intentá nuevamente.');
+    }
+    setIsLoadingRecords(false);
+  };
 
   const updateCount = (key, delta) => {
     setMessage('');
@@ -122,35 +149,57 @@ export default function RegistroTurno() {
     setTotalPeople(calculatedPeople);
   };
 
-  const saveRecord = (event) => {
+  const saveRecord = async (event) => {
     event.preventDefault();
+    setIsSaving(true);
+    setMessage('');
+    const safeFullPassCount = numberValue(counts.fullPassCount);
+    const safeHasFreePhotoBenefit = safeFullPassCount > 0;
+    const safeTotalPeople = Math.max(numberValue(totalPeople), calculatedPeople);
     const record = {
       id: buildId(),
       date,
       turnTime,
-      photoCode: photoCode.trim() || createPhotoCode(date, turnTime),
-      totalPeople: numberValue(totalPeople),
+      photoCode: (photoCode.trim() || createPhotoCode(date, turnTime)).toUpperCase(),
+      totalPeople: safeTotalPeople,
       standardCount: numberValue(counts.standardCount),
-      fullPassCount: numberValue(counts.fullPassCount),
+      fullPassCount: safeFullPassCount,
       kidsCount: numberValue(counts.kidsCount),
       premiumKidsCount: numberValue(counts.premiumKidsCount),
       fullDayCount: numberValue(counts.fullDayCount),
       yakutoboganCount: numberValue(counts.yakutoboganCount),
-      hasFreePhotoBenefit,
+      hasFreePhotoBenefit: safeHasFreePhotoBenefit,
+      freePhotoRedeemed: safeHasFreePhotoBenefit ? freePhotoRedeemed : false,
+      purchasedExtraPhotos,
       notes: notes.trim(),
       createdAt: new Date().toISOString(),
     };
-    const nextRecords = [record, ...readRecords()];
-    writeRecords(nextRecords);
-    setRecords(nextRecords);
-    setLastRecord(record);
-    setMessage('Registro guardado correctamente.');
-    setCounts(EMPTY_COUNTS);
-    setNotes('');
-    setTotalTouched(false);
-    setTotalPeople(0);
-    setPhotoCodeTouched(false);
-    setPhotoCode(createPhotoCode(date, turnTime));
+
+    const result = await saveTurnRecord(record);
+    if (result.ok) {
+      setLastRecord(result.data);
+      setMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
+      setMessage(result.storage === 'supabase' ? 'Registro guardado en la nube.' : 'Registro guardado en este dispositivo. La nube todavía no está disponible.');
+      const refreshed = await listTurnRecordsByDate(date);
+      if (refreshed.ok) {
+        setRecords(refreshed.data);
+        setRecordsStorage(refreshed.storage);
+      } else {
+        setRecords((current) => [result.data, ...current.filter((item) => item.id !== result.data.id)]);
+      }
+      setCounts(EMPTY_COUNTS);
+      setNotes('');
+      setFreePhotoRedeemed(false);
+      setPurchasedExtraPhotos(false);
+      setTotalTouched(false);
+      setTotalPeople(0);
+      setPhotoCodeTouched(false);
+      setPhotoCode(createPhotoCode(date, turnTime));
+    } else {
+      setMessageTone('error');
+      setMessage('No pudimos guardar el registro. Revisá la conexión e intentá nuevamente.');
+    }
+    setIsSaving(false);
   };
 
   return (
@@ -158,9 +207,9 @@ export default function RegistroTurno() {
       <section className="turn-register-hero">
         <div>
           <span className="turn-register-kicker">YakuExpress interno</span>
-          <h1>Registro simple de grupos por turno</h1>
+          <h1>Registro de grupos por turno</h1>
           <p>
-            Medí cuántas personas entran por horario, cuántos usan Full Pass y qué grupos tienen beneficio de foto gratis.
+            Registrá Full Pass, foto gratis y posibles compras de fotos antes del ingreso.
           </p>
         </div>
         <div className="turn-register-privacy">
@@ -232,6 +281,27 @@ export default function RegistroTurno() {
             <span>Beneficio foto gratis</span>
             <strong>{hasFreePhotoBenefit ? 'Sí aplica' : 'No aplica todavía'}</strong>
             <p>Se marca automáticamente cuando el grupo tiene al menos un Full Pass.</p>
+            {hasFreePhotoBenefit && <em>Foto gratis incluida</em>}
+          </div>
+
+          <div className="turn-commercial-switches">
+            <label className={!hasFreePhotoBenefit ? 'disabled' : ''}>
+              <input
+                type="checkbox"
+                checked={freePhotoRedeemed}
+                disabled={!hasFreePhotoBenefit}
+                onChange={(event) => setFreePhotoRedeemed(event.target.checked)}
+              />
+              <span>Foto gratis usada</span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={purchasedExtraPhotos}
+                onChange={(event) => setPurchasedExtraPhotos(event.target.checked)}
+              />
+              <span>Compró fotos extra</span>
+            </label>
           </div>
 
           <label className="turn-notes-field">
@@ -244,8 +314,10 @@ export default function RegistroTurno() {
             />
           </label>
 
-          <button className="turn-register-submit" type="submit">Guardar registro del turno</button>
-          {message && <p className="turn-register-message" role="status">{message}</p>}
+          <button className="turn-register-submit" type="submit" disabled={isSaving}>
+            {isSaving ? 'Guardando registro...' : 'Guardar registro del turno'}
+          </button>
+          {message && <p className={`turn-register-message ${messageTone}`} role="status">{message}</p>}
         </form>
 
         <aside className="turn-register-stack">
@@ -257,6 +329,8 @@ export default function RegistroTurno() {
               <div><strong>{selectedDateSummary.fullPass}</strong><span>Full Pass</span></div>
               <div><strong>{selectedDateSummary.benefitGroups}</strong><span>Grupos con beneficio</span></div>
               <div><strong>{selectedDateSummary.fullPassRate}%</strong><span>Full Pass / personas</span></div>
+              <div><strong>{selectedDateSummary.redeemed}</strong><span>Fotos gratis usadas</span></div>
+              <div><strong>{selectedDateSummary.extraPhotos}</strong><span>Compraron fotos extra</span></div>
             </div>
           </section>
 
@@ -265,24 +339,41 @@ export default function RegistroTurno() {
               <span>Último registro</span>
               <strong>{lastRecord.photoCode}</strong>
               <p>{lastRecord.totalPeople} personas · {lastRecord.fullPassCount} Full Pass · Foto gratis: {lastRecord.hasFreePhotoBenefit ? 'Sí' : 'No'}</p>
+              <div className="turn-record-badges">
+                <span>{lastRecord.storage === 'supabase' ? 'Nube' : 'Este dispositivo'}</span>
+                {lastRecord.freePhotoRedeemed && <span>Foto gratis usada</span>}
+                {lastRecord.purchasedExtraPhotos && <span>Compró fotos extra</span>}
+              </div>
             </section>
           )}
         </aside>
       </section>
 
       <section className="turn-register-card turn-records-section">
-        <div className="turn-register-card-head">
-          <span>Registros guardados</span>
-          <h2>Turnos de la fecha seleccionada</h2>
+        <div className="turn-records-header">
+          <div className="turn-register-card-head">
+            <span>Registros guardados</span>
+            <h2>Turnos de la fecha seleccionada</h2>
+          </div>
+          <button type="button" onClick={refreshRecords} disabled={isLoadingRecords}>
+            {isLoadingRecords ? 'Actualizando...' : 'Actualizar registros'}
+          </button>
         </div>
-        {selectedDateRecords.length ? (
+        <p className="turn-record-source">Fuente actual: {recordsStorage === 'supabase' ? 'Nube' : 'Este dispositivo'}</p>
+        {records.length ? (
           <div className="turn-record-list">
-            {selectedDateRecords.map((record) => (
+            {records.map((record) => (
               <article className="turn-record-item" key={record.id}>
                 <div>
                   <span>{record.turnTime}</span>
                   <strong>{record.photoCode}</strong>
                   <small>{record.notes || 'Sin notas'}</small>
+                  <div className="turn-record-badges">
+                    <span>{record.storage === 'supabase' ? 'Nube' : 'Este dispositivo'}</span>
+                    {record.hasFreePhotoBenefit && <span>Foto gratis incluida</span>}
+                    {record.freePhotoRedeemed && <span>Foto gratis usada</span>}
+                    {record.purchasedExtraPhotos && <span>Compró fotos extra</span>}
+                  </div>
                 </div>
                 <dl>
                   <div><dt>Personas</dt><dd>{record.totalPeople}</dd></div>
