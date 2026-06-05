@@ -4868,3 +4868,186 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 @media (max-width: 420px) {
   .turn-whatsapp-field { padding: 12px; }
 }
+/* Fase 8D - Resumen comercial diario */
+.turn-commercial-summary {
+  max-width: 1180px;
+  margin: 0 auto 18px;
+}
+.turn-commercial-summary .turn-register-card-head p {
+  max-width: 760px;
+  margin: -8px 0 16px;
+  color: #61778f;
+  line-height: 1.4;
+}
+.turn-commercial-summary .turn-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.turn-summary-metric {
+  border: 1px solid rgba(0, 78, 145, .1);
+  border-radius: 18px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fff, #f7fbff);
+}
+.turn-summary-metric.featured {
+  border-color: rgba(0, 143, 170, .28);
+  background: linear-gradient(135deg, rgba(0, 178, 213, .12), rgba(255, 206, 0, .16));
+}
+.turn-summary-value {
+  display: block;
+  color: #001d55;
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  line-height: 1;
+}
+.turn-summary-label {
+  display: block;
+  margin-top: 7px;
+  color: #001d55;
+  font-size: .86rem;
+  font-weight: 950;
+}
+.turn-summary-helper {
+  display: block;
+  margin-top: 6px;
+  color: #61778f;
+  font-size: .76rem;
+  line-height: 1.25;
+}
+.turn-summary-empty {
+  margin: 0;
+  border-radius: 18px;
+  padding: 18px;
+  background: rgba(0, 29, 85, .04);
+  color: #61778f;
+  text-align: center;
+  font-weight: 850;
+}
+@media (max-width: 860px) {
+  .turn-commercial-summary .turn-summary-grid { grid-template-columns: 1fr; }
+}
+/* Fase 8E - Seguimiento comercial de turnos */
+.turn-followup-action {
+  align-self: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #001d55;
+  color: #fff;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(0, 29, 85, .18);
+}
+.turn-followup-action:hover { transform: translateY(-1px); }
+.turn-followup-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 20, 48, .48);
+}
+.turn-followup-panel {
+  width: min(560px, 100%);
+  max-height: min(720px, calc(100vh - 36px));
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, .7);
+  border-radius: 24px;
+  padding: 20px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 29, 85, .28);
+}
+.turn-followup-panel .turn-register-card-head p {
+  margin: -8px 0 16px;
+  color: #61778f;
+  font-weight: 850;
+}
+.turn-followup-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.turn-followup-options label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(0, 143, 170, .16);
+  border-radius: 16px;
+  padding: 12px;
+  background: #f7fbff;
+  color: #001d55;
+  font-weight: 900;
+}
+.turn-followup-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.turn-followup-field span {
+  color: #001d55;
+  font-size: .82rem;
+  font-weight: 950;
+}
+.turn-followup-field input,
+.turn-followup-field textarea {
+  width: 100%;
+  border: 1px solid rgba(0, 78, 145, .16);
+  border-radius: 15px;
+  padding: 11px 12px;
+  color: #001d55;
+  font: inherit;
+  font-weight: 750;
+  background: #fbfdff;
+}
+.turn-followup-field small {
+  color: #61778f;
+  line-height: 1.35;
+}
+.turn-followup-status {
+  margin: 12px 0 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 155, 110, .1);
+  color: #006a4e;
+  font-weight: 900;
+}
+.turn-followup-status.warning {
+  background: rgba(255, 206, 0, .2);
+  color: #835400;
+}
+.turn-followup-status.error {
+  background: rgba(204, 45, 45, .1);
+  color: #9b1c1c;
+}
+.turn-followup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.turn-followup-actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 16px;
+  font-weight: 950;
+  cursor: pointer;
+}
+.turn-followup-actions button:first-child {
+  background: #edf4fb;
+  color: #001d55;
+}
+.turn-followup-actions button:last-child {
+  background: #00a9c8;
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(0, 169, 200, .22);
+}
+.turn-followup-actions button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+@media (max-width: 860px) {
+  .turn-followup-action { width: 100%; }
+  .turn-followup-options { grid-template-columns: 1fr; }
+  .turn-followup-actions { flex-direction: column-reverse; }
+  .turn-followup-actions button { width: 100%; }
+}

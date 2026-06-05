@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { listTurnRecordsByDate, maskCustomerWhatsapp, normalizeCustomerWhatsapp, saveTurnRecord } from '../services/turnRecordsService.js';
+import { listTurnRecordsByDate, maskCustomerWhatsapp, normalizeCustomerWhatsapp, saveTurnRecord, updateTurnRecordFollowUp } from '../services/turnRecordsService.js';
 
 const TURN_OPTIONS = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
 const MONTH_NAMES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
@@ -39,6 +39,22 @@ function numberValue(value) {
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
 }
 
+function percentValue(numerator, denominator) {
+  return denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+}
+
+function recordNumber(record, camelKey, snakeKey) {
+  return numberValue(record?.[camelKey] ?? record?.[snakeKey]);
+}
+
+function recordBoolean(record, camelKey, snakeKey) {
+  return record?.[camelKey] === true || record?.[snakeKey] === true || record?.[camelKey] === 'true' || record?.[snakeKey] === 'true';
+}
+
+function recordText(record, camelKey, snakeKey) {
+  return String(record?.[camelKey] ?? record?.[snakeKey] ?? '').trim();
+}
+
 function formatDateLabel(dateValue) {
   if (!dateValue) return 'Fecha sin definir';
   const [year, month, day] = dateValue.split('-').map(Number);
@@ -49,6 +65,31 @@ function formatDateLabel(dateValue) {
 function buildId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `turn-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function buildCommercialSummary(records) {
+  const totalGroups = records.length;
+  const totalPeople = records.reduce((sum, record) => sum + recordNumber(record, 'totalPeople', 'total_people'), 0);
+  const totalFullPass = records.reduce((sum, record) => sum + recordNumber(record, 'fullPassCount', 'full_pass_count'), 0);
+  const groupsWithFreePhotoBenefit = records.filter((record) => (
+    recordBoolean(record, 'hasFreePhotoBenefit', 'has_free_photo_benefit') || recordNumber(record, 'fullPassCount', 'full_pass_count') > 0
+  )).length;
+  const groupsWithWhatsapp = records.filter((record) => recordText(record, 'customerWhatsapp', 'customer_whatsapp')).length;
+  const freePhotosRedeemed = records.filter((record) => recordBoolean(record, 'freePhotoRedeemed', 'free_photo_redeemed')).length;
+  const groupsPurchasedExtraPhotos = records.filter((record) => recordBoolean(record, 'purchasedExtraPhotos', 'purchased_extra_photos')).length;
+  const fullPassRate = percentValue(totalFullPass, totalPeople);
+  const extraPhotoConversion = percentValue(groupsPurchasedExtraPhotos, groupsWithFreePhotoBenefit);
+  return {
+    totalGroups,
+    totalPeople,
+    totalFullPass,
+    fullPassRate,
+    groupsWithFreePhotoBenefit,
+    groupsWithWhatsapp,
+    freePhotosRedeemed,
+    groupsPurchasedExtraPhotos,
+    extraPhotoConversion,
+  };
 }
 
 export default function RegistroTurno() {
@@ -111,15 +152,17 @@ export default function RegistroTurno() {
   }, [date]);
 
   const selectedDateSummary = useMemo(() => {
-    const people = records.reduce((sum, record) => sum + numberValue(record.totalPeople), 0);
-    const fullPass = records.reduce((sum, record) => sum + numberValue(record.fullPassCount), 0);
-    const benefitGroups = records.filter((record) => record.hasFreePhotoBenefit).length;
-    const redeemed = records.filter((record) => record.freePhotoRedeemed).length;
-    const extraPhotos = records.filter((record) => record.purchasedExtraPhotos).length;
-    const whatsappRecords = records.filter((record) => record.customerWhatsapp).length;
-    const fullPassRate = people ? Math.round((fullPass / people) * 100) : 0;
+    const people = records.reduce((sum, record) => sum + recordNumber(record, 'totalPeople', 'total_people'), 0);
+    const fullPass = records.reduce((sum, record) => sum + recordNumber(record, 'fullPassCount', 'full_pass_count'), 0);
+    const benefitGroups = records.filter((record) => recordBoolean(record, 'hasFreePhotoBenefit', 'has_free_photo_benefit')).length;
+    const redeemed = records.filter((record) => recordBoolean(record, 'freePhotoRedeemed', 'free_photo_redeemed')).length;
+    const extraPhotos = records.filter((record) => recordBoolean(record, 'purchasedExtraPhotos', 'purchased_extra_photos')).length;
+    const whatsappRecords = records.filter((record) => recordText(record, 'customerWhatsapp', 'customer_whatsapp')).length;
+    const fullPassRate = percentValue(fullPass, people);
     return { people, fullPass, benefitGroups, redeemed, extraPhotos, whatsappRecords, fullPassRate };
   }, [records]);
+
+  const commercialSummary = useMemo(() => buildCommercialSummary(records), [records]);
 
   const refreshRecords = async () => {
     setIsLoadingRecords(true);
@@ -154,6 +197,63 @@ export default function RegistroTurno() {
     setTotalPeople(calculatedPeople);
   };
 
+  const openFollowUp = (record) => {
+    const canUseWhatsapp = record.hasFreePhotoBenefit || record.fullPassCount > 0;
+    setFollowUpRecord(record);
+    setFollowUpForm({
+      freePhotoRedeemed: Boolean(record.freePhotoRedeemed),
+      purchasedExtraPhotos: Boolean(record.purchasedExtraPhotos),
+      customerWhatsapp: canUseWhatsapp ? (record.customerWhatsapp || '') : '',
+      notes: record.notes || '',
+    });
+    setFollowUpStatus({ tone: 'success', text: '' });
+  };
+
+  const closeFollowUp = () => {
+    if (isUpdatingFollowUp) return;
+    setFollowUpRecord(null);
+    setFollowUpStatus({ tone: 'success', text: '' });
+  };
+
+  const updateFollowUpField = (key, value) => {
+    setFollowUpStatus({ tone: 'success', text: '' });
+    setFollowUpForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const submitFollowUp = async (event) => {
+    event.preventDefault();
+    if (!followUpRecord?.id) return;
+    setIsUpdatingFollowUp(true);
+    setFollowUpStatus({ tone: 'success', text: '' });
+    const canUseWhatsapp = followUpRecord.hasFreePhotoBenefit || followUpRecord.fullPassCount > 0;
+    const result = await updateTurnRecordFollowUp(followUpRecord.id, {
+      freePhotoRedeemed: followUpForm.freePhotoRedeemed,
+      purchasedExtraPhotos: followUpForm.purchasedExtraPhotos,
+      customerWhatsapp: canUseWhatsapp ? followUpForm.customerWhatsapp : '',
+      notes: followUpForm.notes,
+    });
+
+    if (result.ok) {
+      setFollowUpStatus({ tone: 'success', text: 'Seguimiento actualizado.' });
+      setMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
+      setMessage(result.storage === 'supabase' ? 'Seguimiento actualizado.' : 'Seguimiento actualizado en este dispositivo.');
+      const refreshed = await listTurnRecordsByDate(date);
+      if (refreshed.ok) {
+        setRecords(refreshed.data);
+        setRecordsStorage(refreshed.storage);
+      } else {
+        setRecords((current) => current.map((item) => (item.id === result.data.id ? result.data : item)));
+      }
+      setLastRecord((current) => (current?.id === result.data.id ? result.data : current));
+      setFollowUpRecord(null);
+    } else {
+      setFollowUpStatus({
+        tone: 'warning',
+        text: result.message || 'Todavía no se puede actualizar en la nube. Falta habilitar edición segura.',
+      });
+    }
+    setIsUpdatingFollowUp(false);
+  };
   const saveRecord = async (event) => {
     event.preventDefault();
     setIsSaving(true);
@@ -376,6 +476,68 @@ export default function RegistroTurno() {
         </aside>
       </section>
 
+      <section className="turn-register-card turn-commercial-summary">
+        <div className="turn-register-card-head">
+          <span>Medición comercial</span>
+          <h2>Resumen comercial del día</h2>
+          <p>Medí cuántos Full Pass entraron por la foto gratis y cuántos avanzaron a compra de fotos.</p>
+        </div>
+
+        {commercialSummary.totalGroups ? (
+          <>
+            <div className="turn-summary-grid">
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.totalGroups}</strong>
+                <span className="turn-summary-label">Grupos registrados</span>
+                <small className="turn-summary-helper">Registros cargados para esta fecha.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.totalPeople}</strong>
+                <span className="turn-summary-label">Personas registradas</span>
+                <small className="turn-summary-helper">Suma del total de personas por grupo.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.totalFullPass}</strong>
+                <span className="turn-summary-label">Full Pass</span>
+                <small className="turn-summary-helper">Full Pass representa el {commercialSummary.fullPassRate}% de las personas registradas hoy.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.fullPassRate}%</strong>
+                <span className="turn-summary-label">Conversión Full Pass</span>
+                <small className="turn-summary-helper">Full Pass sobre personas registradas.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.groupsWithFreePhotoBenefit}</strong>
+                <span className="turn-summary-label">Grupos con foto gratis</span>
+                <small className="turn-summary-helper">Grupos con beneficio incluido por Full Pass.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.groupsWithWhatsapp}</strong>
+                <span className="turn-summary-label">WhatsApp registrados</span>
+                <small className="turn-summary-helper">{commercialSummary.groupsWithWhatsapp} grupos dejaron WhatsApp para coordinar la foto gratis.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.freePhotosRedeemed}</strong>
+                <span className="turn-summary-label">Fotos gratis usadas</span>
+                <small className="turn-summary-helper">Beneficios marcados como usados por el staff.</small>
+              </div>
+              <div className="turn-summary-metric">
+                <strong className="turn-summary-value">{commercialSummary.groupsPurchasedExtraPhotos}</strong>
+                <span className="turn-summary-label">Compraron fotos extra</span>
+                <small className="turn-summary-helper">{commercialSummary.groupsPurchasedExtraPhotos} grupos compraron fotos extra después del beneficio.</small>
+              </div>
+              <div className="turn-summary-metric featured">
+                <strong className="turn-summary-value">{commercialSummary.extraPhotoConversion}%</strong>
+                <span className="turn-summary-label">Conversión a fotos extra</span>
+                <small className="turn-summary-helper">Compras extra sobre grupos con foto gratis.</small>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="turn-summary-empty">Todavía no hay registros para esta fecha.</p>
+        )}
+      </section>
+
       <section className="turn-register-card turn-records-section">
         <div className="turn-records-header">
           <div className="turn-register-card-head">
@@ -410,6 +572,9 @@ export default function RegistroTurno() {
                   <div><dt>Foto gratis</dt><dd>{record.hasFreePhotoBenefit ? 'Sí' : 'No'}</dd></div>
                   <div><dt>WhatsApp</dt><dd>{record.customerWhatsapp ? 'Registrado' : 'Sin registrar'}</dd></div>
                 </dl>
+                <button className="turn-followup-action" type="button" onClick={() => openFollowUp(record)}>
+                  Actualizar seguimiento
+                </button>
               </article>
             ))}
           </div>
@@ -417,6 +582,72 @@ export default function RegistroTurno() {
           <p className="turn-record-empty">Todavía no hay grupos guardados para esta fecha.</p>
         )}
       </section>
+
+      {followUpRecord && (
+        <div className="turn-followup-modal" role="dialog" aria-modal="true" aria-label="Actualizar seguimiento comercial">
+          <form className="turn-followup-panel" onSubmit={submitFollowUp}>
+            <div className="turn-register-card-head">
+              <span>Seguimiento comercial</span>
+              <h2>Actualizar seguimiento</h2>
+              <p>{followUpRecord.photoCode} · {followUpRecord.turnTime}</p>
+            </div>
+
+            <div className="turn-followup-options">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={followUpForm.freePhotoRedeemed}
+                  onChange={(event) => updateFollowUpField('freePhotoRedeemed', event.target.checked)}
+                />
+                <span>Foto gratis usada</span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={followUpForm.purchasedExtraPhotos}
+                  onChange={(event) => updateFollowUpField('purchasedExtraPhotos', event.target.checked)}
+                />
+                <span>Compró fotos extra</span>
+              </label>
+            </div>
+
+            {(followUpRecord.hasFreePhotoBenefit || followUpRecord.fullPassCount > 0) ? (
+              <label className="turn-followup-field">
+                <span>WhatsApp para foto gratis</span>
+                <input
+                  type="tel"
+                  value={followUpForm.customerWhatsapp}
+                  onChange={(event) => updateFollowUpField('customerWhatsapp', event.target.value)}
+                  placeholder="Ej. 999 999 999"
+                  inputMode="tel"
+                />
+                <small>Opcional. Visible solo al editar el seguimiento del registro.</small>
+              </label>
+            ) : (
+              <p className="turn-followup-status">Este grupo no tiene beneficio de foto gratis, por eso no se registra WhatsApp.</p>
+            )}
+
+            <label className="turn-followup-field">
+              <span>Observación de seguimiento</span>
+              <textarea
+                value={followUpForm.notes}
+                onChange={(event) => updateFollowUpField('notes', event.target.value)}
+                rows="3"
+                placeholder="Ej: volvió después del turno, pidió link, compró fotos en caja..."
+              />
+            </label>
+
+            {followUpStatus.text && <p className={`turn-followup-status ${followUpStatus.tone}`}>{followUpStatus.text}</p>}
+
+            <div className="turn-followup-actions">
+              <button type="button" onClick={closeFollowUp} disabled={isUpdatingFollowUp}>Cancelar</button>
+              <button type="submit" disabled={isUpdatingFollowUp}>
+                {isUpdatingFollowUp ? 'Actualizando...' : 'Guardar seguimiento'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }

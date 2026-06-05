@@ -105,6 +105,12 @@ function isExpectedSupabaseSetupError(error) {
   return /turn_records|customer_whatsapp|schema cache|does not exist|relation|column|42p01|42703|pgrst/i.test(message);
 }
 
+function logSupabaseTurnRecordError(action, error) {
+  const code = error?.code || 'unknown';
+  const message = error?.message || 'Unknown Supabase error';
+  console.warn(`Turn record cloud ${action} unavailable. Using local fallback.`, { code, message });
+}
+
 export function saveTurnRecordLocal(record) {
   try {
     const normalized = normalizeTurnRecord(record, 'localStorage');
@@ -128,6 +134,31 @@ export function listTurnRecordsLocalByDate(date) {
     return { ok: false, storage: 'none', error };
   }
 }
+export function updateTurnRecordFollowUpLocal(recordId, updates) {
+  try {
+    if (!recordId) return { ok: false, storage: 'none', error: new Error('recordId requerido') };
+    const current = readAllLocalRecords().map((item) => normalizeTurnRecord(item, item.storage || 'localStorage'));
+    const index = current.findIndex((item) => item.id === recordId);
+    if (index < 0) return { ok: false, storage: 'none', error: new Error('Registro local no encontrado') };
+    const currentRecord = current[index];
+    const canStoreWhatsapp = currentRecord.hasFreePhotoBenefit || currentRecord.fullPassCount > 0;
+    const nextRecord = normalizeTurnRecord({
+      ...currentRecord,
+      freePhotoRedeemed: booleanValue(updates.freePhotoRedeemed ?? updates.free_photo_redeemed),
+      purchasedExtraPhotos: booleanValue(updates.purchasedExtraPhotos ?? updates.purchased_extra_photos),
+      customerWhatsapp: canStoreWhatsapp ? normalizeCustomerWhatsapp(updates.customerWhatsapp ?? updates.customer_whatsapp) : '',
+      notes: String(updates.notes || '').trim(),
+      updatedAt: new Date().toISOString(),
+      storage: 'localStorage',
+    }, 'localStorage');
+    const next = [...current];
+    next[index] = nextRecord;
+    writeAllLocalRecords(next);
+    return { ok: true, storage: 'localStorage', data: nextRecord };
+  } catch (error) {
+    return { ok: false, storage: 'none', error };
+  }
+}
 
 export async function saveTurnRecord(record) {
   try {
@@ -140,9 +171,7 @@ export async function saveTurnRecord(record) {
     if (error) throw error;
     return { ok: true, storage: 'supabase', data: normalizeDbRecord(data) };
   } catch (error) {
-    if (!isExpectedSupabaseSetupError(error)) {
-      console.warn('Turn record cloud save unavailable. Using local fallback.');
-    }
+    logSupabaseTurnRecordError('save', error);
     return saveTurnRecordLocal(record);
   }
 }
@@ -157,9 +186,38 @@ export async function listTurnRecordsByDate(date) {
     if (error) throw error;
     return { ok: true, storage: 'supabase', data: (data || []).map(normalizeDbRecord) };
   } catch (error) {
-    if (!isExpectedSupabaseSetupError(error)) {
-      console.warn('Turn record cloud list unavailable. Using local fallback.');
-    }
+    logSupabaseTurnRecordError('list', error);
     return listTurnRecordsLocalByDate(date);
+  }
+}
+export async function updateTurnRecordFollowUp(recordId, updates = {}) {
+  if (!recordId) return { ok: false, storage: 'none', error: new Error('recordId requerido') };
+  const followUpPayload = {
+    free_photo_redeemed: booleanValue(updates.freePhotoRedeemed ?? updates.free_photo_redeemed),
+    purchased_extra_photos: booleanValue(updates.purchasedExtraPhotos ?? updates.purchased_extra_photos),
+    customer_whatsapp: normalizeCustomerWhatsapp(updates.customerWhatsapp ?? updates.customer_whatsapp) || null,
+    notes: String(updates.notes || '').trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from('turn_records')
+      .update(followUpPayload)
+      .eq('id', recordId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { ok: true, storage: 'supabase', data: normalizeDbRecord(data) };
+  } catch (error) {
+    logSupabaseTurnRecordError('follow-up update', error);
+    const localResult = updateTurnRecordFollowUpLocal(recordId, updates);
+    if (localResult.ok) return localResult;
+    return {
+      ok: false,
+      storage: 'none',
+      error,
+      message: 'Todavía no se puede actualizar en la nube. Falta habilitar edición segura.',
+    };
   }
 }

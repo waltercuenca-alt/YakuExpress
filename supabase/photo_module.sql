@@ -350,3 +350,50 @@ revoke all on table public.turn_records from authenticated;
 
 grant select, insert on public.turn_records to anon;
 grant select, insert on public.turn_records to authenticated;
+-- Fase 8E.1 - UPDATE seguro para seguimiento comercial de turn_records
+-- Aplicar en Supabase SQL Editor despues de revisar columnas y RLS.
+-- No crear politica DELETE. No otorgar DELETE. No tocar otras tablas.
+
+alter table public.turn_records
+  add column if not exists customer_whatsapp text;
+
+alter table public.turn_records
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.turn_records enable row level security;
+
+drop policy if exists "turn_records_update_followup_anon_authenticated" on public.turn_records;
+
+create policy "turn_records_update_followup_anon_authenticated"
+on public.turn_records
+for update
+to anon, authenticated
+using (
+  source = 'registro-turno'
+)
+with check (
+  source = 'registro-turno'
+  and total_people >= 0
+  and standard_count >= 0
+  and full_pass_count >= 0
+  and kids_count >= 0
+  and premium_kids_count >= 0
+  and full_day_count >= 0
+  and yakutobogan_count >= 0
+);
+
+grant update (
+  free_photo_redeemed,
+  purchased_extra_photos,
+  customer_whatsapp,
+  notes,
+  updated_at
+) on public.turn_records to anon;
+
+grant update (
+  free_photo_redeemed,
+  purchased_extra_photos,
+  customer_whatsapp,
+  notes,
+  updated_at
+) on public.turn_records to authenticated;
