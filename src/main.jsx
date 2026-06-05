@@ -4,6 +4,7 @@ import { supabase, syncOrderToSheets } from './supabase.js';
 import Tienda from './pages/Tienda.jsx';
 import Fotos from './pages/Fotos.jsx';
 import DescargaFotos from './pages/DescargaFotos.jsx';
+import RegistroTurno from './pages/RegistroTurno.jsx';
 import { getWatermarkEnabled, loadGlobalWatermarkEnabled, saveGlobalWatermarkEnabled } from './watermarkConfig.js';
 import './styles.css';
 
@@ -101,6 +102,7 @@ function App() {
   if (path.startsWith('/tv') || path.startsWith('/monitor')) return <TvPanel navigate={navigate} />;
   if (path.startsWith('/marketing')) return <StaffPanel mode="marketing" navigate={navigate} />;
   if (path.startsWith('/tienda')) return <Tienda navigate={navigate} />;
+  if (path.startsWith('/registro-turno')) return <RegistroTurno />;
   if (path.startsWith('/fotos')) return <Fotos navigate={navigate} path={path} />;
   if (path.startsWith('/descarga')) return <DescargaFotos path={path} />;
   return <ClientFlow navigate={navigate} />;

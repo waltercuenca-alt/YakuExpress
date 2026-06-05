@@ -4436,3 +4436,286 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .photo-select input { width: 22px; height: 22px; }
 }
 
+
+/* Fase 8A - Registro simple de grupos por turno */
+.turn-register-page {
+  min-height: 100vh;
+  padding: 24px clamp(14px, 4vw, 42px) 52px;
+  background: radial-gradient(circle at top left, rgba(0, 178, 213, .16), transparent 32%), linear-gradient(180deg, #f4fbff 0%, #eef6fb 48%, #f8fbff 100%);
+  color: #082449;
+}
+.turn-register-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+  gap: 18px;
+  align-items: stretch;
+  max-width: 1180px;
+  margin: 0 auto 18px;
+}
+.turn-register-hero > div:first-child,
+.turn-register-privacy,
+.turn-register-card {
+  border: 1px solid rgba(0, 78, 145, .12);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .86);
+  box-shadow: 0 22px 60px rgba(12, 52, 91, .11);
+  backdrop-filter: blur(18px);
+}
+.turn-register-hero > div:first-child { padding: clamp(22px, 4vw, 36px); }
+.turn-register-kicker,
+.turn-register-card-head span,
+.turn-summary-card > span,
+.turn-last-record > span {
+  display: inline-flex;
+  width: fit-content;
+  margin-bottom: 9px;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: rgba(255, 206, 0, .24);
+  color: #8a5400;
+  font-size: .72rem;
+  font-weight: 950;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.turn-register-hero h1 {
+  max-width: 740px;
+  margin: 0 0 10px;
+  color: #001d55;
+  font-size: clamp(2rem, 5vw, 4.2rem);
+  line-height: .95;
+  letter-spacing: 0;
+}
+.turn-register-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: #4d6380;
+  font-size: clamp(1rem, 2vw, 1.18rem);
+  line-height: 1.45;
+}
+.turn-register-privacy {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 22px;
+  background: linear-gradient(135deg, rgba(0, 29, 85, .96), rgba(0, 143, 170, .9));
+  color: #fff;
+}
+.turn-register-privacy strong { font-size: 1.25rem; }
+.turn-register-privacy span { color: rgba(255, 255, 255, .82); line-height: 1.35; }
+.turn-register-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  align-items: start;
+}
+.turn-register-card { padding: clamp(16px, 3vw, 24px); }
+.turn-register-card-head h2,
+.turn-summary-card h2 {
+  margin: 0 0 16px;
+  color: #001d55;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1.05;
+}
+.turn-register-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+.turn-register-fields label,
+.turn-notes-field {
+  display: grid;
+  gap: 7px;
+  color: #334e6e;
+  font-size: .88rem;
+  font-weight: 850;
+}
+.turn-register-fields input,
+.turn-register-fields select,
+.turn-notes-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 78, 145, .18);
+  border-radius: 15px;
+  padding: 12px 13px;
+  background: #fff;
+  color: #082449;
+  font: inherit;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+.turn-register-fields input:focus,
+.turn-register-fields select:focus,
+.turn-notes-field textarea:focus {
+  border-color: rgba(0, 178, 213, .6);
+  box-shadow: 0 0 0 4px rgba(0, 178, 213, .14);
+}
+.turn-calculated-total {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0;
+  border-radius: 16px;
+  padding: 11px 13px;
+  background: rgba(0, 178, 213, .08);
+  color: #385875;
+}
+.turn-calculated-total button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #001d55;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+}
+.turn-counter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.turn-counter-control {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(0, 78, 145, .12);
+  border-radius: 18px;
+  padding: 12px;
+  background: linear-gradient(180deg, #fff, #f8fcff);
+}
+.turn-counter-control strong { display: block; color: #001d55; }
+.turn-counter-control span { display: block; margin-top: 3px; color: #627892; font-size: .78rem; line-height: 1.2; }
+.turn-counter-actions {
+  display: grid;
+  grid-template-columns: 36px 32px 36px;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.turn-counter-actions button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: #e9f4fb;
+  color: #001d55;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 950;
+}
+.turn-counter-actions button:last-child { background: linear-gradient(135deg, #ffce00, #ff8a00); }
+.turn-benefit-card {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+  border: 1px solid rgba(0, 78, 145, .12);
+  border-radius: 18px;
+  padding: 14px;
+  background: #f7fbff;
+}
+.turn-benefit-card.active {
+  border-color: rgba(0, 143, 170, .32);
+  background: linear-gradient(135deg, rgba(0, 178, 213, .13), rgba(255, 206, 0, .18));
+}
+.turn-benefit-card span { color: #647b95; font-size: .78rem; font-weight: 900; text-transform: uppercase; }
+.turn-benefit-card strong { color: #001d55; font-size: 1.15rem; }
+.turn-benefit-card p { margin: 0; color: #526a86; line-height: 1.35; }
+.turn-notes-field textarea { min-height: 92px; resize: vertical; }
+.turn-register-submit {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #001d55, #008faa);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 950;
+  box-shadow: 0 18px 38px rgba(0, 43, 99, .18);
+}
+.turn-register-message {
+  margin: 12px 0 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 155, 110, .1);
+  color: #006a4e;
+  font-weight: 900;
+}
+.turn-register-stack { display: grid; gap: 18px; }
+.turn-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.turn-summary-grid div {
+  border-radius: 17px;
+  padding: 13px;
+  background: rgba(0, 29, 85, .05);
+}
+.turn-summary-grid strong { display: block; color: #001d55; font-size: 1.65rem; line-height: 1; }
+.turn-summary-grid span { display: block; margin-top: 6px; color: #61778f; font-size: .78rem; line-height: 1.2; }
+.turn-last-record strong { display: block; color: #001d55; font-size: 1.4rem; }
+.turn-last-record p { margin: 8px 0 0; color: #526a86; line-height: 1.35; }
+.turn-records-section {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.turn-record-list { display: grid; gap: 11px; }
+.turn-record-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid rgba(0, 78, 145, .1);
+  border-radius: 18px;
+  padding: 13px;
+  background: #fff;
+}
+.turn-record-item span { color: #008faa; font-weight: 950; }
+.turn-record-item strong { display: block; margin: 2px 0; color: #001d55; font-size: 1.08rem; }
+.turn-record-item small { color: #687e96; }
+.turn-record-item dl {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+.turn-record-item dl div {
+  min-width: 76px;
+  border-radius: 14px;
+  padding: 9px;
+  background: #f3f8fc;
+  text-align: center;
+}
+.turn-record-item dt { color: #687e96; font-size: .68rem; font-weight: 850; text-transform: uppercase; }
+.turn-record-item dd { margin: 4px 0 0; color: #001d55; font-weight: 950; }
+.turn-record-empty {
+  margin: 0;
+  border-radius: 18px;
+  padding: 18px;
+  background: rgba(0, 29, 85, .04);
+  color: #61778f;
+  text-align: center;
+}
+@media (max-width: 860px) {
+  .turn-register-page { padding: 14px 10px 34px; }
+  .turn-register-hero,
+  .turn-register-layout { grid-template-columns: 1fr; }
+  .turn-register-fields,
+  .turn-counter-grid { grid-template-columns: 1fr; }
+  .turn-record-item { grid-template-columns: 1fr; }
+  .turn-record-item dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .turn-register-card { border-radius: 20px; padding: 14px; }
+  .turn-counter-control { align-items: stretch; flex-direction: column; }
+  .turn-counter-actions { grid-template-columns: 44px 1fr 44px; }
+  .turn-counter-actions button { width: 44px; height: 42px; }
+  .turn-summary-grid { grid-template-columns: 1fr; }
+  .turn-record-item dl { grid-template-columns: 1fr; }
+}
