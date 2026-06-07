@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import PhotoMontageStudio from './PhotoMontageStudio.jsx';
 
 export default function PhotoLightbox({
   photo,
@@ -17,6 +18,7 @@ export default function PhotoLightbox({
 
   const currentSelected = selectedIds.includes(photo.id);
   const canNavigate = photos.length > 1;
+  const [montageOpen, setMontageOpen] = useState(false);
 
   const goToPhoto = useCallback((nextIndex) => {
     if (!photos.length) return;
@@ -27,8 +29,14 @@ export default function PhotoLightbox({
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
+        if (montageOpen) {
+          setMontageOpen(false);
+          return;
+        }
         onClose?.();
       }
+
+      if (montageOpen) return;
 
       if (event.key === 'ArrowLeft' && canNavigate) {
         goToPhoto(currentIndex - 1);
@@ -41,7 +49,7 @@ export default function PhotoLightbox({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canNavigate, currentIndex, goToPhoto, onClose]);
+  }, [canNavigate, currentIndex, goToPhoto, montageOpen, onClose]);
 
   return (
     <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label={`Foto ${photo.number}`}>
@@ -89,13 +97,22 @@ export default function PhotoLightbox({
             <span className="photo-lightbox-caption">Foto #{photo.number}</span>
             <small>{selectedCount} fotos seleccionadas</small>
           </div>
-          <button
-            className={`photo-lightbox-select ${currentSelected ? 'selected' : ''}`}
-            type="button"
-            onClick={() => onSelectToggle?.(photo.id)}
-          >
-            {currentSelected ? 'Quitar seleccion' : 'Seleccionar foto'}
-          </button>
+          <div className="photo-lightbox-actions">
+            <button
+              className="photo-lightbox-montage"
+              type="button"
+              onClick={() => setMontageOpen(true)}
+            >
+              Crear montaje
+            </button>
+            <button
+              className={`photo-lightbox-select ${currentSelected ? 'selected' : ''}`}
+              type="button"
+              onClick={() => onSelectToggle?.(photo.id)}
+            >
+              {currentSelected ? 'Quitar seleccion' : 'Seleccionar foto'}
+            </button>
+          </div>
         </div>
 
         <div className="photo-filmstrip" aria-label="Miniaturas de fotos">
@@ -120,6 +137,8 @@ export default function PhotoLightbox({
           })}
         </div>
       </div>
+
+      <PhotoMontageStudio photo={photo} isOpen={montageOpen} onClose={() => setMontageOpen(false)} />
     </div>
   );
 }

@@ -91,6 +91,30 @@ function buildCommercialSummary(records) {
     extraPhotoConversion,
   };
 }
+function normalizeWhatsappForLink(value) {
+  const cleaned = String(value || '').replace(/[^\d+]/g, '');
+  const withoutPlus = cleaned.startsWith('+') ? cleaned.slice(1) : cleaned;
+  const digits = withoutPlus.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 9) return `51${digits}`;
+  if (digits.startsWith('51') && digits.length >= 11 && digits.length <= 15) return digits;
+  if (digits.length >= 10 && digits.length <= 15) return digits;
+  return '';
+}
+
+function buildTurnWhatsappMessage(record) {
+  const code = String(record?.photoCode || record?.photo_code || '').trim() || 'tu código de fotos';
+  if (recordBoolean(record, 'freePhotoRedeemed', 'free_photo_redeemed')) {
+    return `Hola, somos Yakupark. Te escribimos para hacer seguimiento de la foto gratis incluida en tu Full Pass. Si querés revisar más posibles fotos o elegir tus favoritas, podés usar tu código: ${code}.`;
+  }
+  return `Hola, somos Yakupark. Te escribimos por la foto gratis incluida en tu Full Pass. Podés revisar tus fotos con este código: ${code}. Si querés, también podemos ayudarte a elegir tus fotos favoritas.`;
+}
+
+function buildTurnWhatsappUrl(record) {
+  const number = normalizeWhatsappForLink(recordText(record, 'customerWhatsapp', 'customer_whatsapp'));
+  if (!number) return '';
+  return `https://wa.me/${number}?text=${encodeURIComponent(buildTurnWhatsappMessage(record))}`;
+}
 
 export default function RegistroTurno() {
   const today = useMemo(() => localDateValue(), []);
@@ -112,6 +136,10 @@ export default function RegistroTurno() {
   const [recordsStorage, setRecordsStorage] = useState('localStorage');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [followUpRecord, setFollowUpRecord] = useState(null);
+  const [followUpForm, setFollowUpForm] = useState({ freePhotoRedeemed: false, purchasedExtraPhotos: false, customerWhatsapp: '', notes: '' });
+  const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
+  const [followUpStatus, setFollowUpStatus] = useState({ tone: 'success', text: '' });
 
   const calculatedPeople = useMemo(() => Object.values(counts).reduce((sum, value) => sum + numberValue(value), 0), [counts]);
   const hasFreePhotoBenefit = counts.fullPassCount > 0;
@@ -572,9 +600,27 @@ export default function RegistroTurno() {
                   <div><dt>Foto gratis</dt><dd>{record.hasFreePhotoBenefit ? 'Sí' : 'No'}</dd></div>
                   <div><dt>WhatsApp</dt><dd>{record.customerWhatsapp ? 'Registrado' : 'Sin registrar'}</dd></div>
                 </dl>
-                <button className="turn-followup-action" type="button" onClick={() => openFollowUp(record)}>
-                  Actualizar seguimiento
-                </button>
+
+                <div className="turn-record-actions turn-whatsapp-action">
+                  {record.customerWhatsapp && (
+                    buildTurnWhatsappUrl(record) ? (
+                      <a
+                        className="turn-whatsapp-button"
+                        href={buildTurnWhatsappUrl(record)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Enviar WhatsApp sobre foto gratis"
+                      >
+                        Enviar WhatsApp
+                      </a>
+                    ) : (
+                      <span className="turn-whatsapp-disabled">WhatsApp no válido</span>
+                    )
+                  )}
+                  <button className="turn-followup-action" type="button" onClick={() => openFollowUp(record)}>
+                    Actualizar seguimiento
+                  </button>
+                </div>
               </article>
             ))}
           </div>
