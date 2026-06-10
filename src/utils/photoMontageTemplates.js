@@ -1,5 +1,14 @@
 export const PHOTO_MONTAGE_TEMPLATES = [
   {
+    id: 'souvenir-yakupark',
+    name: 'Souvenir Yakupark',
+    description: 'Un recuerdo acuatico con marco, olas y sello Yakupark.',
+    type: 'souvenir',
+    accentLabel: 'Souvenir',
+    backgroundUrl: '/photo-montages/backgrounds/souvenir-yakupark-bg.png',
+    overlayUrl: '/photo-montages/overlays/souvenir-yakupark-overlay.png',
+  },
+  {
     id: 'giant-wave',
     name: 'Ola gigante',
     description: 'Una composicion heroica con energia de ola, espuma y aventura acuática.',

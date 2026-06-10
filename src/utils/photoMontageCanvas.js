@@ -168,6 +168,51 @@ function drawSunset(ctx, width, height) {
   }
 }
 
+function drawSouvenirYakupark(ctx, image, background, overlay, width, height) {
+  const baseWidth = 1122;
+  const baseHeight = 1402;
+  const photoAreaBase = {
+    x: 145,
+    y: 405,
+    width: 832,
+    height: 705,
+    radius: 28,
+  };
+  const scaleX = width / baseWidth;
+  const scaleY = height / baseHeight;
+  const photoArea = {
+    x: photoAreaBase.x * scaleX,
+    y: photoAreaBase.y * scaleY,
+    width: photoAreaBase.width * scaleX,
+    height: photoAreaBase.height * scaleY,
+    radius: photoAreaBase.radius * Math.min(scaleX, scaleY),
+  };
+
+  ctx.drawImage(background, 0, 0, width, height);
+
+  ctx.save();
+  roundedRect(
+    ctx,
+    photoArea.x,
+    photoArea.y,
+    photoArea.width,
+    photoArea.height,
+    photoArea.radius
+  );
+  ctx.clip();
+  drawImageCover(
+    ctx,
+    image,
+    photoArea.x,
+    photoArea.y,
+    photoArea.width,
+    photoArea.height
+  );
+  ctx.restore();
+
+  ctx.drawImage(overlay, 0, 0, width, height);
+}
+
 function drawTemplateBackground(ctx, template, width, height) {
   if (template.type === 'dolphins') drawDolphins(ctx, width, height);
   else if (template.type === 'sunset') drawSunset(ctx, width, height);
@@ -200,6 +245,23 @@ export async function generatePhotoMontage({ photoUrl, template }) {
   const { width, height } = canvas;
 
   const usedFallbackBackground = Boolean(template?.backgroundUrl && !realBackground);
+
+  if (template?.type === 'souvenir') {
+    if (!realBackground || !realOverlay) {
+      throw new Error('No pudimos cargar las capas visuales de Souvenir Yakupark.');
+    }
+    drawSouvenirYakupark(ctx, image, realBackground, realOverlay, width, height);
+    drawPreviewWatermark(ctx, width, height);
+
+    try {
+      return {
+        dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+        usedFallbackBackground: false,
+      };
+    } catch {
+      throw new Error('No pudimos exportar la vista previa. Proba con otra foto.');
+    }
+  }
 
   if (realBackground) {
     drawImageCover(ctx, realBackground, 0, 0, width, height);
