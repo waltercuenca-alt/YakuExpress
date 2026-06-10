@@ -5238,6 +5238,13 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   color: #d5006f;
   font-weight: 950;
 }
+.photo-montage-availability {
+  margin: 12px 0 0;
+  color: #526a86;
+  font-size: .88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
 .photo-montage-preview-card {
   display: grid;
   place-items: center;

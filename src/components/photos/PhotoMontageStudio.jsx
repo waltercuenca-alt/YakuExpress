@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { generatePhotoMontage, downloadMontageDataUrl } from '../../utils/photoMontageCanvas.js';
 import { PHOTO_MONTAGE_TEMPLATES, getPhotoMontageTemplate } from '../../utils/photoMontageTemplates.js';
 
@@ -16,31 +16,45 @@ export default function PhotoMontageStudio({ photo, isOpen, onClose }) {
   const [previewUrl, setPreviewUrl] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const generationIdRef = useRef(0);
 
   const selectedTemplate = useMemo(() => getPhotoMontageTemplate(templateId), [templateId]);
   const photoSource = getPhotoSource(photo);
 
   useEffect(() => {
     if (!isOpen || !photoSource) return undefined;
+    const generationId = generationIdRef.current + 1;
+    generationIdRef.current = generationId;
     let active = true;
+
     setIsGenerating(true);
     setErrorMessage('');
 
-    generatePhotoMontage({ photoUrl: photoSource, template: selectedTemplate })
-      .then((dataUrl) => {
-        if (!active) return;
-        setPreviewUrl(dataUrl);
-      })
-      .catch(() => {
-        if (!active) return;
-        setPreviewUrl('');
-        setErrorMessage('No pudimos generar la vista previa en este momento. Probá con otra foto o plantilla.');
-      })
-      .finally(() => {
-        if (active) setIsGenerating(false);
-      });
+    const timer = window.setTimeout(() => {
+      generatePhotoMontage({ photoUrl: photoSource, template: selectedTemplate })
+        .then((result) => {
+          if (!active || generationId !== generationIdRef.current) return;
+          setPreviewUrl(result.dataUrl);
+          setErrorMessage(
+            result.usedFallbackBackground
+              ? 'No pudimos cargar este fondo. Te mostramos una vista previa alternativa.'
+              : ''
+          );
+        })
+        .catch(() => {
+          if (!active || generationId !== generationIdRef.current) return;
+          setPreviewUrl('');
+          setErrorMessage('No pudimos generar la vista previa en este momento. Probá con otra foto o plantilla.');
+        })
+        .finally(() => {
+          if (active && generationId === generationIdRef.current) setIsGenerating(false);
+        });
+    }, 200);
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, [isOpen, photoSource, selectedTemplate]);
 
   if (!isOpen || !photo) return null;
@@ -75,10 +89,11 @@ export default function PhotoMontageStudio({ photo, isOpen, onClose }) {
                 </button>
               ))}
             </div>
+            <p className="photo-montage-availability">Los fondos premium pueden variar según disponibilidad.</p>
           </div>
 
           <div className="photo-montage-preview-card">
-            {isGenerating && <div className="photo-montage-loading">Generando vista previa...</div>}
+            {isGenerating && <div className="photo-montage-loading">Preparando vista previa...</div>}
             {!isGenerating && errorMessage && <p className="photo-montage-error">{errorMessage}</p>}
             {!isGenerating && previewUrl && (
               <img src={previewUrl} alt={`Vista previa ${selectedTemplate.name}`} />

@@ -13,10 +13,26 @@ export function loadImageFromUrl(url) {
     const image = new Image();
     image.crossOrigin = 'anonymous';
     image.decoding = 'async';
-    image.onload = () => resolve(image);
+    image.onload = async () => {
+      try {
+        if (typeof image.decode === 'function') await image.decode();
+      } catch {
+        // La imagen ya cargó; decode puede fallar en algunos navegadores sin impedir el canvas.
+      }
+      resolve(image);
+    };
     image.onerror = () => reject(new Error('No pudimos cargar la foto para el montaje.'));
     image.src = url;
   });
+}
+
+async function loadImageSafely(url) {
+  if (!url) return null;
+  try {
+    return await loadImageFromUrl(url);
+  } catch {
+    return null;
+  }
 }
 
 export function drawImageCover(ctx, image, x, y, width, height) {
@@ -172,14 +188,24 @@ function drawPreviewWatermark(ctx, width, height) {
 }
 
 export async function generatePhotoMontage({ photoUrl, template }) {
-  const image = await loadImageFromUrl(photoUrl);
+  const [image, realBackground, realOverlay] = await Promise.all([
+    loadImageFromUrl(photoUrl),
+    loadImageSafely(template?.backgroundUrl),
+    loadImageSafely(template?.overlayUrl),
+  ]);
   const canvas = document.createElement('canvas');
   canvas.width = PHOTO_MONTAGE_SIZE.width;
   canvas.height = PHOTO_MONTAGE_SIZE.height;
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
 
-  drawTemplateBackground(ctx, template, width, height);
+  const usedFallbackBackground = Boolean(template?.backgroundUrl && !realBackground);
+
+  if (realBackground) {
+    drawImageCover(ctx, realBackground, 0, 0, width, height);
+  } else {
+    drawTemplateBackground(ctx, template, width, height);
+  }
 
   ctx.save();
   ctx.shadowColor = 'rgba(0, 29, 85, .42)';
@@ -214,10 +240,16 @@ export async function generatePhotoMontage({ photoUrl, template }) {
   ctx.fillStyle = 'rgba(255,255,255,.92)';
   ctx.font = '900 30px Arial, sans-serif';
   ctx.fillText(template.accentLabel || 'Vista previa', 140, 130);
+  if (realOverlay) {
+    ctx.drawImage(realOverlay, 0, 0, width, height);
+  }
   drawPreviewWatermark(ctx, width, height);
 
   try {
-    return canvas.toDataURL('image/jpeg', 0.92);
+    return {
+      dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+      usedFallbackBackground,
+    };
   } catch {
     throw new Error('No pudimos exportar la vista previa. Probá con otra foto.');
   }
