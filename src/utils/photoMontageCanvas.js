@@ -219,19 +219,6 @@ function drawTemplateBackground(ctx, template, width, height) {
   else drawWave(ctx, width, height);
 }
 
-function drawPreviewWatermark(ctx, width, height) {
-  ctx.save();
-  ctx.translate(width / 2, height / 2);
-  ctx.rotate(-0.38);
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '900 110px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('VISTA PREVIA', 0, 0);
-  ctx.restore();
-  ctx.globalAlpha = 1;
-}
-
 export async function generatePhotoMontage({ photoUrl, template }) {
   const [image, realBackground, realOverlay] = await Promise.all([
     loadImageFromUrl(photoUrl),
@@ -251,8 +238,6 @@ export async function generatePhotoMontage({ photoUrl, template }) {
       throw new Error('No pudimos cargar las capas visuales de Souvenir Yakupark.');
     }
     drawSouvenirYakupark(ctx, image, realBackground, realOverlay, width, height);
-    drawPreviewWatermark(ctx, width, height);
-
     try {
       return {
         dataUrl: canvas.toDataURL('image/jpeg', 0.92),
@@ -305,8 +290,6 @@ export async function generatePhotoMontage({ photoUrl, template }) {
   if (realOverlay) {
     ctx.drawImage(realOverlay, 0, 0, width, height);
   }
-  drawPreviewWatermark(ctx, width, height);
-
   try {
     return {
       dataUrl: canvas.toDataURL('image/jpeg', 0.92),
