@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import PhotoMontageStudio from './PhotoMontageStudio.jsx';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+
+const PhotoMontageStudio = lazy(() => import('./PhotoMontageStudio.jsx'));
 
 export default function PhotoLightbox({
   photo,
@@ -16,9 +17,16 @@ export default function PhotoLightbox({
     return index >= 0 ? index : 0;
   }, [photo.id, photos]);
 
-  const currentSelected = selectedIds.includes(photo.id);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const currentSelected = selectedIdSet.has(photo.id);
   const canNavigate = photos.length > 1;
   const [montageOpen, setMontageOpen] = useState(false);
+  const [montageLoaded, setMontageLoaded] = useState(false);
+
+  const openMontage = useCallback(() => {
+    setMontageLoaded(true);
+    setMontageOpen(true);
+  }, []);
 
   const goToPhoto = useCallback((nextIndex) => {
     if (!photos.length) return;
@@ -101,7 +109,7 @@ export default function PhotoLightbox({
             <button
               className="photo-lightbox-montage"
               type="button"
-              onClick={() => setMontageOpen(true)}
+              onClick={openMontage}
             >
               Crear montaje
             </button>
@@ -117,7 +125,7 @@ export default function PhotoLightbox({
 
         <div className="photo-filmstrip" aria-label="Miniaturas de fotos">
           {photos.map((item, index) => {
-            const selected = selectedIds.includes(item.id);
+            const selected = selectedIdSet.has(item.id);
             const active = item.id === photo.id;
 
             return (
@@ -138,7 +146,21 @@ export default function PhotoLightbox({
         </div>
       </div>
 
-      <PhotoMontageStudio photo={photo} isOpen={montageOpen} onClose={() => setMontageOpen(false)} />
+      {montageLoaded && (
+        <Suspense fallback={<MontageLoading />}>
+          <PhotoMontageStudio photo={photo} isOpen={montageOpen} onClose={() => setMontageOpen(false)} />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+function MontageLoading() {
+  return (
+    <div className="photo-montage-backdrop" role="status" aria-live="polite">
+      <div className="photo-montage-studio">
+        <div className="photo-montage-loading">Preparando montajes...</div>
+      </div>
     </div>
   );
 }

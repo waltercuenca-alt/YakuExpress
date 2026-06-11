@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 const priceRows = [
   ['1 FOTO', 'GRATIS', 'blue', ''],
@@ -7,7 +7,7 @@ const priceRows = [
   ['TODAS LAS FOTOS', 'S/80', 'pink', 'Mas elegido'],
 ];
 
-export default function PhotoPackagePanel({ totalPhotos, selectedCount, packageInfo, onSelectAll, onClear, onContinue }) {
+function PhotoPackagePanel({ totalPhotos, selectedCount, packageInfo, onSelectAll, onClear, onContinue }) {
   return (
     <aside className={`photo-package ${totalPhotos ? 'has-photos' : ''}`}>
       <div className="photo-price-title">PRECIOS</div>
@@ -45,6 +45,8 @@ export default function PhotoPackagePanel({ totalPhotos, selectedCount, packageI
     </aside>
   );
 }
+
+export default memo(PhotoPackagePanel);
 
 function CameraIcon() {
   return (

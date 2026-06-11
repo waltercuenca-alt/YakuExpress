@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabase.js';
 import PhotoGallery from '../components/photos/PhotoGallery.jsx';
 import PhotoLightbox from '../components/photos/PhotoLightbox.jsx';
@@ -25,9 +25,10 @@ export default function Fotos({ navigate, path = '' }) {
   const [successOrder, setSuccessOrder] = useState(null);
   const [watermarkEnabled, setWatermarkPreviewEnabled] = useState(getWatermarkEnabled);
 
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedPhotos = useMemo(
-    () => photos.filter((photo) => selectedIds.includes(photo.id)),
-    [photos, selectedIds],
+    () => photos.filter((photo) => selectedIdSet.has(photo.id)),
+    [photos, selectedIdSet],
   );
   const packageInfo = useMemo(
     () => photoPackageFor(selectedPhotos.length, photos.length),
@@ -99,16 +100,20 @@ export default function Fotos({ navigate, path = '' }) {
     }
   };
 
-  const togglePhoto = (photoId) => {
+  const togglePhoto = useCallback((photoId) => {
     setSelectedIds((current) => (
       current.includes(photoId)
         ? current.filter((id) => id !== photoId)
         : [...current, photoId]
     ));
-  };
+  }, []);
 
-  const selectAll = () => setSelectedIds(photos.map((photo) => photo.id));
-  const clearSelection = () => setSelectedIds([]);
+  const selectAll = useCallback(
+    () => setSelectedIds(photos.map((photo) => photo.id)),
+    [photos],
+  );
+  const clearSelection = useCallback(() => setSelectedIds([]), []);
+  const openSummary = useCallback(() => setSummaryOpen(true), []);
 
   const createPhotoOrder = async (whatsappNumber) => {
     if (!searchedCode || !selectedPhotos.length) return;
@@ -270,7 +275,7 @@ export default function Fotos({ navigate, path = '' }) {
             packageInfo={packageInfo}
             onSelectAll={selectAll}
             onClear={clearSelection}
-            onContinue={() => setSummaryOpen(true)}
+            onContinue={openSummary}
           />
         </section>
 
@@ -284,7 +289,7 @@ export default function Fotos({ navigate, path = '' }) {
       {mobileCheckoutVisible && (
         <aside className="mobile-photo-checkout" aria-label="Continuar con el pedido de fotos" aria-live="polite">
           <strong>{mobileCheckoutLabel}</strong>
-          <button type="button" onClick={() => setSummaryOpen(true)}>
+          <button type="button" onClick={openSummary}>
             Continuar con mi pedido
           </button>
         </aside>
