@@ -1,21 +1,49 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
+
+const INITIAL_VISIBLE_PHOTOS = 48;
+const VISIBLE_PHOTOS_STEP = 48;
 
 function PhotoGallery({ photos, selectedIds, onToggle, onOpen, watermarkEnabled = true }) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_PHOTOS);
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const visiblePhotos = useMemo(
+    () => photos.slice(0, visibleCount),
+    [photos, visibleCount],
+  );
+  const remainingCount = Math.max(photos.length - visiblePhotos.length, 0);
+  const nextBatchCount = Math.min(VISIBLE_PHOTOS_STEP, remainingCount);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_PHOTOS);
+  }, [photos]);
 
   return (
-    <div className="photos-grid">
-      {photos.map((photo) => (
-        <PhotoCard
-          key={photo.id}
-          photo={photo}
-          selected={selectedIdSet.has(photo.id)}
-          watermarkEnabled={watermarkEnabled}
-          onOpen={onOpen}
-          onToggle={onToggle}
-        />
-      ))}
-    </div>
+    <>
+      <div className="photos-grid">
+        {visiblePhotos.map((photo) => (
+          <PhotoCard
+            key={photo.id}
+            photo={photo}
+            selected={selectedIdSet.has(photo.id)}
+            watermarkEnabled={watermarkEnabled}
+            onOpen={onOpen}
+            onToggle={onToggle}
+          />
+        ))}
+      </div>
+
+      {remainingCount > 0 && (
+        <div className="photo-gallery-progress" aria-live="polite">
+          <span>Mostrando {visiblePhotos.length} de {photos.length} fotos</span>
+          <button
+            type="button"
+            onClick={() => setVisibleCount((current) => Math.min(current + VISIBLE_PHOTOS_STEP, photos.length))}
+          >
+            Ver {nextBatchCount} fotos mas
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
