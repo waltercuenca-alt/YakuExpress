@@ -35,11 +35,7 @@ export default function PhotoMontageStudio({ photo, isOpen, onClose }) {
         .then((result) => {
           if (!active || generationId !== generationIdRef.current) return;
           setPreviewUrl(result.dataUrl);
-          setErrorMessage(
-            result.usedFallbackBackground
-              ? 'No pudimos cargar este fondo. Te mostramos una vista previa alternativa.'
-              : ''
-          );
+          setErrorMessage('');
         })
         .catch(() => {
           if (!active || generationId !== generationIdRef.current) return;
@@ -89,7 +85,7 @@ export default function PhotoMontageStudio({ photo, isOpen, onClose }) {
                 </button>
               ))}
             </div>
-            <p className="photo-montage-availability">Los fondos premium pueden variar según disponibilidad.</p>
+            <p className="photo-montage-availability">Los marcos premium pueden variar según disponibilidad.</p>
           </div>
 
           <div className="photo-montage-preview-card">

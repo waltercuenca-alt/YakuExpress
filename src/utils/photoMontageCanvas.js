@@ -54,6 +54,25 @@ export function drawImageCover(ctx, image, x, y, width, height) {
   ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
 }
 
+function drawImageContain(ctx, image, x, y, width, height) {
+  const imageRatio = image.width / image.height;
+  const targetRatio = width / height;
+  let targetWidth = width;
+  let targetHeight = height;
+  let targetX = x;
+  let targetY = y;
+
+  if (imageRatio > targetRatio) {
+    targetHeight = width / imageRatio;
+    targetY += (height - targetHeight) / 2;
+  } else {
+    targetWidth = height * imageRatio;
+    targetX += (width - targetWidth) / 2;
+  }
+
+  ctx.drawImage(image, targetX, targetY, targetWidth, targetHeight);
+}
+
 function roundedRect(ctx, x, y, width, height, radius) {
   const safeRadius = Math.min(radius, width / 2, height / 2);
   ctx.beginPath();
@@ -168,48 +187,9 @@ function drawSunset(ctx, width, height) {
   }
 }
 
-function drawSouvenirYakupark(ctx, image, background, overlay, width, height) {
-  const baseWidth = 1122;
-  const baseHeight = 1402;
-  const photoAreaBase = {
-    x: 145,
-    y: 405,
-    width: 832,
-    height: 705,
-    radius: 28,
-  };
-  const scaleX = width / baseWidth;
-  const scaleY = height / baseHeight;
-  const photoArea = {
-    x: photoAreaBase.x * scaleX,
-    y: photoAreaBase.y * scaleY,
-    width: photoAreaBase.width * scaleX,
-    height: photoAreaBase.height * scaleY,
-    radius: photoAreaBase.radius * Math.min(scaleX, scaleY),
-  };
-
-  ctx.drawImage(background, 0, 0, width, height);
-
-  ctx.save();
-  roundedRect(
-    ctx,
-    photoArea.x,
-    photoArea.y,
-    photoArea.width,
-    photoArea.height,
-    photoArea.radius
-  );
-  ctx.clip();
-  drawImageCover(
-    ctx,
-    image,
-    photoArea.x,
-    photoArea.y,
-    photoArea.width,
-    photoArea.height
-  );
-  ctx.restore();
-
+function drawPhotoWithOverlay(ctx, image, overlay, width, height) {
+  drawImageCover(ctx, image, 0, 0, width, height);
+  drawImageContain(ctx, image, 0, 0, width, height);
   ctx.drawImage(overlay, 0, 0, width, height);
 }
 
@@ -220,9 +200,8 @@ function drawTemplateBackground(ctx, template, width, height) {
 }
 
 export async function generatePhotoMontage({ photoUrl, template }) {
-  const [image, realBackground, realOverlay] = await Promise.all([
+  const [image, realOverlay] = await Promise.all([
     loadImageFromUrl(photoUrl),
-    loadImageSafely(template?.backgroundUrl),
     loadImageSafely(template?.overlayUrl),
   ]);
   const canvas = document.createElement('canvas');
@@ -231,13 +210,11 @@ export async function generatePhotoMontage({ photoUrl, template }) {
   const ctx = canvas.getContext('2d');
   const { width, height } = canvas;
 
-  const usedFallbackBackground = Boolean(template?.backgroundUrl && !realBackground);
-
   if (template?.type === 'souvenir') {
-    if (!realBackground || !realOverlay) {
-      throw new Error('No pudimos cargar las capas visuales de Souvenir Yakupark.');
+    if (!realOverlay) {
+      throw new Error('No pudimos cargar el marco visual de Souvenir Yakupark.');
     }
-    drawSouvenirYakupark(ctx, image, realBackground, realOverlay, width, height);
+    drawPhotoWithOverlay(ctx, image, realOverlay, width, height);
     try {
       return {
         dataUrl: canvas.toDataURL('image/jpeg', 0.92),
@@ -248,11 +225,8 @@ export async function generatePhotoMontage({ photoUrl, template }) {
     }
   }
 
-  if (realBackground) {
-    drawImageCover(ctx, realBackground, 0, 0, width, height);
-  } else {
-    drawTemplateBackground(ctx, template, width, height);
-  }
+  drawImageCover(ctx, image, 0, 0, width, height);
+  drawImageContain(ctx, image, 0, 0, width, height);
 
   ctx.save();
   ctx.shadowColor = 'rgba(0, 29, 85, .42)';
@@ -293,7 +267,7 @@ export async function generatePhotoMontage({ photoUrl, template }) {
   try {
     return {
       dataUrl: canvas.toDataURL('image/jpeg', 0.92),
-      usedFallbackBackground,
+      usedFallbackBackground: false,
     };
   } catch {
     throw new Error('No pudimos exportar la vista previa. Probá con otra foto.');
