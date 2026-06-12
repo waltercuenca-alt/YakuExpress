@@ -98,28 +98,59 @@ export default function DescargaFotos({ path = '' }) {
   if (loading) {
     return (
       <main className="private-download-shell">
-        <section className="private-download-card loading">
-          <span>YakuPark Adventure</span>
-          <div className="private-download-spinner" />
-          <h1>Preparando tus recuerdos...</h1>
-          <p>Estamos cargando tu galería privada en HD.</p>
+        <section className="private-download-card loading" aria-live="polite">
+          <div className="private-download-brand">
+            <strong>Yaku</strong>
+            <span>Park</span>
+          </div>
+          <span className="private-download-status neutral">Enlace privado</span>
+          <div className="private-download-spinner" aria-hidden="true" />
+          <h1>Estamos verificando tu enlace de descarga...</h1>
+          <p>Esto puede tomar unos segundos.</p>
         </section>
       </main>
     );
   }
 
   if (!order || order.status !== 'completed') {
+    const isUnavailable = !order;
     return (
       <main className="private-download-shell">
-        <section className="private-download-card locked">
-          <span>YakuPark Adventure</span>
-          <h1>Acceso a tus fotos</h1>
-          <p>{message || 'Este pedido aun no esta habilitado para descarga.'}</p>
-          <p className="private-download-security">Este enlace muestra únicamente las fotos incluidas en tu pedido.</p>
-          {order && <strong>{order.order_code}</strong>}
+        <section className={`private-download-card locked ${isUnavailable ? 'unavailable' : ''}`}>
+          <div className="private-download-brand">
+            <strong>Yaku</strong>
+            <span>Park</span>
+          </div>
+          <span className={`private-download-status ${isUnavailable ? 'error' : 'pending'}`}>
+            {isUnavailable ? 'Enlace no disponible' : 'Pedido en preparación'}
+          </span>
+          <div className="private-download-state-mark" aria-hidden="true">
+            {isUnavailable ? '!' : '...'}
+          </div>
+          <h1>
+            {isUnavailable
+              ? 'No pudimos encontrar este enlace de descarga.'
+              : 'Tu pedido todavía está siendo preparado.'}
+          </h1>
+          <p>
+            {isUnavailable
+              ? 'Verifica que el enlace esté completo o solicita ayuda con tu código de pedido.'
+              : 'Cuando Caja confirme el pago, este enlace quedará habilitado para descargar tus fotos.'}
+          </p>
+          {order && (
+            <div className="private-download-order-code">
+              <small>Código de pedido</small>
+              <strong>{order.order_code}</strong>
+            </div>
+          )}
+          <p className="private-download-help">
+            {isUnavailable
+              ? 'Tu enlace es privado y no muestra información técnica ni datos sensibles.'
+              : 'Si ya pagaste, consulta con atención de Yakupark.'}
+          </p>
           {order && (
             <button type="button" onClick={loadPrivateOrder}>
-              Verificar estado
+              Verificar nuevamente
             </button>
           )}
         </section>
@@ -130,19 +161,33 @@ export default function DescargaFotos({ path = '' }) {
   return (
     <main className="private-download-shell">
       <section className="private-download-card ready">
+        <div className="private-download-brand">
+          <strong>Yaku</strong>
+          <span>Park</span>
+        </div>
         <header className="private-download-header">
-          <span>Pago confirmado</span>
-          <h1>Tus recuerdos de Yakupark están listos</h1>
-          <p>Descarga tus fotos HD desde este enlace privado.</p>
+          <span className="private-download-status success">Pago confirmado</span>
+          <h1>Tus fotos están listas</h1>
+          <p>Descarga tus fotos compradas de forma privada y segura.</p>
         </header>
         <div className="private-download-meta">
-          <strong>{order.order_code}</strong>
-          <small>{order.client_code} - {items.length} fotos</small>
+          <div>
+            <small>Código de pedido</small>
+            <strong>{order.order_code}</strong>
+          </div>
+          <div>
+            <small>Fotos disponibles</small>
+            <strong>{items.length}</strong>
+          </div>
         </div>
-        <p className="private-download-security">Este enlace muestra únicamente las fotos incluidas en tu pedido.</p>
+        <p className="private-download-security">Este enlace es privado y muestra únicamente las fotos incluidas en tu pedido.</p>
         <div className="private-download-bulk">
+          <div>
+            <strong>Descarga tu pedido</strong>
+            <small>Puedes descargar todas las fotos o elegirlas una por una.</small>
+          </div>
           <button type="button" onClick={handleDownloadAll} disabled={downloadingAll || !items.length}>
-            {downloadingAll ? 'Preparando descargas...' : 'Descargar todas'}
+            {downloadingAll ? 'Preparando descargas...' : 'Descargar todas las fotos'}
           </button>
           {bulkMessage && (
             <p className={`private-download-bulk-message ${bulkWarning ? 'warning' : ''}`} aria-live="polite">
@@ -150,19 +195,39 @@ export default function DescargaFotos({ path = '' }) {
             </p>
           )}
         </div>
-        <div className="private-download-list">
-          {items.map((item) => (
-            <article className="private-download-item" key={item.id}>
-              <img src={item.image_url || item.hd_url} alt={`Foto ${item.photo_number} seleccionada`} />
-              <div>
-                <strong>Foto #{item.photo_number}</strong>
-                <button type="button" onClick={() => downloadItem(item)} disabled={downloadingId === item.id || downloadingAll}>
-                  {downloadingId === item.id ? 'Descargando...' : 'Descargar HD'}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <section className="private-download-gallery" aria-label="Fotos disponibles para descargar">
+          <div className="private-download-gallery-head">
+            <div>
+              <small>Tu selección</small>
+              <h2>Tus fotos</h2>
+            </div>
+            <span>{items.length} {items.length === 1 ? 'foto' : 'fotos'}</span>
+          </div>
+          <div className="private-download-list">
+            {items.map((item) => (
+              <article className="private-download-item" key={item.id}>
+                <div className="private-download-image">
+                  <img
+                    src={item.image_url || item.hd_url}
+                    alt={`Foto ${item.photo_number} seleccionada`}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span>#{item.photo_number}</span>
+                </div>
+                <div className="private-download-item-body">
+                  <div>
+                    <small>Foto seleccionada</small>
+                    <strong>Foto #{item.photo_number}</strong>
+                  </div>
+                  <button type="button" onClick={() => downloadItem(item)} disabled={downloadingId === item.id || downloadingAll}>
+                    {downloadingId === item.id ? 'Descargando...' : 'Descargar foto'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
         {message && <p className="private-download-message">{message}</p>}
       </section>
     </main>
