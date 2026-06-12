@@ -44,6 +44,22 @@ export const PHOTO_MONTAGE_TEMPLATES = [
     backgroundUrl: '/photo-montages/backgrounds/souvenir-yakupark-bg.png',
     overlayUrl: '/photo-montages/overlays/souvenir-yakupark-overlay5.png',
   },
+  {
+    id: 'souvenir-yakupark-6',
+    name: 'Souvenir Yakupark 6',
+    description: 'Una variante premium con un marco Yakupark diferente.',
+    type: 'souvenir',
+    accentLabel: 'Souvenir',
+    overlayUrl: '/photo-montages/overlays/souvenir-yakupark-overlay6.png',
+  },
+  {
+    id: 'souvenir-yakupark-7',
+    name: 'Souvenir Yakupark 7',
+    description: 'Una variante premium con un marco Yakupark diferente.',
+    type: 'souvenir',
+    accentLabel: 'Souvenir',
+    overlayUrl: '/photo-montages/overlays/souvenir-yakupark-overlay7.png',
+  },
 ];
 
 export function getPhotoMontageTemplate(templateId) {
