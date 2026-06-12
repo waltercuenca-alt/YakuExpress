@@ -7,7 +7,6 @@ import PhotoPackagePanel from '../components/photos/PhotoPackagePanel.jsx';
 import PhotoSearch from '../components/photos/PhotoSearch.jsx';
 import PhotoSummaryModal from '../components/photos/PhotoSummaryModal.jsx';
 import GroupSelfieSearch from '../components/photos/GroupSelfieSearch.jsx';
-import SelfieSearchPreview from '../components/photos/SelfieSearchPreview.jsx';
 import { getWatermarkEnabled, loadGlobalWatermarkEnabled, WATERMARK_CHANGE_EVENT, WATERMARK_STORAGE_KEY } from '../watermarkConfig.js';
 
 export default function Fotos({ navigate, path = '' }) {
@@ -208,7 +207,6 @@ export default function Fotos({ navigate, path = '' }) {
               onGroupSearch={submitGroupSearch}
             />
           </div>
-          <SelfieSearchPreview galleryPhotos={photos} />
         </section>
 
         <GroupSelfieSearch
