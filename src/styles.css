@@ -4342,7 +4342,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .photo-package-total { grid-column: 2 / 3; grid-row: 1 / 3; margin: 0; padding: 8px 10px; border-radius: 13px; }
   .photo-package-total b { font-size: 1.35rem; }
   .photos-shell.has-mobile-checkout .photos-results { padding-bottom: 20px; }
-  .photo-continue-button { grid-column: 1 / -1; min-height: 48px; margin: 0; padding: 11px 12px; border-radius: 13px; font-size: .86rem; }
+  .photo-continue-button { display: none; }
   .photos-poster-footer { display: none; }
   .photos-empty, .photos-loading { min-height: 230px; padding: 12px; }
   .photos-empty button { min-height: 48px; }
@@ -4425,19 +4425,25 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   }
   .photo-lightbox-toolbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     align-items: center;
     margin-bottom: 7px;
     min-width: 0;
   }
   .photo-lightbox-toolbar > div { min-width: 0; }
+  .photo-lightbox-toolbar > div:first-child {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
   .photo-lightbox-caption { font-size: .88rem; line-height: 1.1; }
-  .photo-lightbox-toolbar small { margin-top: 1px; font-size: .72rem; line-height: 1.15; }
+  .photo-lightbox-toolbar small { margin-top: 0; font-size: .72rem; line-height: 1.15; text-align: right; }
   .photo-lightbox-select {
-    min-height: 38px;
-    width: auto;
-    max-width: 150px;
+    min-height: 40px;
+    width: 100%;
+    max-width: none;
     padding: 8px 11px;
     font-size: .76rem;
     line-height: 1.1;
@@ -5378,7 +5384,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 @media (max-width: 860px) {
   .photo-lightbox-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 7px;
   }
   .photo-lightbox-montage,
@@ -5386,20 +5392,115 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
     width: 100%;
     max-width: none;
   }
+  .photo-montage-backdrop {
+    align-items: stretch;
+    padding: 8px;
+  }
   .photo-montage-studio {
-    border-radius: 20px;
-    padding: 16px;
+    width: 100%;
+    max-height: calc(100vh - 16px);
+    box-sizing: border-box;
+    border-radius: 18px;
+    padding: 14px;
+  }
+  @supports (height: 100dvh) {
+    .photo-montage-studio {
+      max-height: calc(100dvh - 16px);
+    }
+  }
+  .photo-montage-close {
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+  }
+  .photo-montage-head {
+    padding-right: 38px;
+  }
+  .photo-montage-head h2 {
+    margin: 5px 0 6px;
+    font-size: 1.72rem;
+  }
+  .photo-montage-head p {
+    font-size: .8rem;
+    line-height: 1.3;
   }
   .photo-montage-layout {
     grid-template-columns: 1fr;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    margin-top: 14px;
+  }
+  .photo-montage-controls {
+    width: 100%;
+    min-width: 0;
+  }
+  .photo-montage-controls > p {
+    margin-bottom: 7px;
+    font-size: .84rem;
+  }
+  .photo-montage-template-grid {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px 7px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .photo-montage-template {
+    flex: 0 0 min(72vw, 240px);
+    min-height: 108px;
+    border-radius: 14px;
+    padding: 10px;
+    scroll-snap-align: start;
+  }
+  .photo-montage-template strong {
+    font-size: .9rem;
+  }
+  .photo-montage-template span {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 4px;
+    font-size: .75rem;
+    line-height: 1.25;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .photo-montage-template small {
+    margin-top: 6px;
+    font-size: .7rem;
+  }
+  .photo-montage-availability {
+    margin-top: 5px;
+    font-size: .74rem;
   }
   .photo-montage-preview-card {
-    min-height: 320px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 300px;
+    border-radius: 18px;
+    padding: 10px;
+  }
+  .photo-montage-preview-card img {
+    max-height: 56vh;
+    border-radius: 14px;
   }
   .photo-montage-actions {
-    flex-direction: column-reverse;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
   }
   .photo-montage-actions button {
     width: 100%;
+    min-height: 46px;
+    padding: 9px 10px;
+    line-height: 1.15;
   }
 }
