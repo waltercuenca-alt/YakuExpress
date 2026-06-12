@@ -5272,9 +5272,25 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   align-items: start;
   margin-top: 20px;
 }
-.photo-montage-controls > p {
-  margin: 0 0 10px;
+.photo-montage-controls-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.photo-montage-controls-head p {
+  margin: 0;
   color: #001d55;
+  font-weight: 950;
+}
+.photo-montage-controls-head > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(0, 78, 145, .08);
+  color: #004e91;
+  font-size: .75rem;
   font-weight: 950;
 }
 .photo-montage-template-grid {
@@ -5282,38 +5298,72 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   gap: 10px;
 }
 .photo-montage-template {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
   border: 1px solid rgba(0, 78, 145, .13);
   border-radius: 18px;
-  padding: 13px;
+  padding: 11px;
   background: #fff;
   color: #073b58;
   text-align: left;
   cursor: pointer;
   box-shadow: 0 12px 24px rgba(0, 29, 85, .06);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
 }
 .photo-montage-template.active {
-  border-color: rgba(0, 178, 213, .72);
-  background: linear-gradient(135deg, rgba(0,178,213,.13), rgba(255,206,0,.18));
-  box-shadow: 0 16px 32px rgba(0, 78, 145, .14);
+  border-color: #00a7e1;
+  background: linear-gradient(135deg, rgba(0,178,213,.14), rgba(255,206,0,.22));
+  box-shadow: 0 0 0 2px rgba(0, 167, 225, .12), 0 16px 32px rgba(0, 78, 145, .14);
 }
-.photo-montage-template strong,
-.photo-montage-template span,
+.photo-montage-template:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 167, 225, .48);
+}
+.photo-montage-template-number {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #003c7c, #00a7e1);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 1000;
+  box-shadow: 0 9px 18px rgba(0, 78, 145, .18);
+}
+.photo-montage-template-copy,
+.photo-montage-template-copy strong,
+.photo-montage-template-copy > span,
 .photo-montage-template small {
   display: block;
 }
-.photo-montage-template strong {
-  color: #001d55;
-  font-size: 1rem;
+.photo-montage-template-copy {
+  min-width: 0;
 }
-.photo-montage-template span {
-  margin-top: 5px;
+.photo-montage-template-copy strong {
+  color: #001d55;
+  font-size: .94rem;
+}
+.photo-montage-template-copy > span {
+  margin-top: 3px;
   color: #526a86;
+  font-size: .76rem;
   line-height: 1.3;
 }
 .photo-montage-template small {
-  margin-top: 8px;
-  color: #d5006f;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(213, 0, 111, .08);
+  color: #a40058;
+  font-size: .68rem;
   font-weight: 950;
+  white-space: nowrap;
+}
+.photo-montage-template.active small {
+  background: #003c7c;
+  color: #fff;
 }
 .photo-montage-availability {
   margin: 12px 0 0;
@@ -5321,6 +5371,48 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   font-size: .88rem;
   font-weight: 800;
   line-height: 1.35;
+}
+.photo-montage-preview-zone {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.photo-montage-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.photo-montage-preview-head small,
+.photo-montage-preview-head strong {
+  display: block;
+}
+.photo-montage-preview-head small {
+  color: #526a86;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.photo-montage-preview-head strong {
+  margin-top: 2px;
+  color: #001d55;
+  font-size: 1.05rem;
+}
+.photo-montage-preview-head > span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: .72rem;
+  font-weight: 950;
+}
+.photo-montage-preview-head > span.is-loading {
+  background: #fff4c4;
+  color: #805100;
+}
+.photo-montage-preview-head > span.is-ready {
+  background: #dff7eb;
+  color: #12623c;
 }
 .photo-montage-preview-card {
   display: grid;
@@ -5352,6 +5444,16 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 }
 .photo-montage-error {
   color: #9b1c1c;
+}
+.photo-montage-notice {
+  margin: 0;
+  border-radius: 13px;
+  padding: 9px 11px;
+  background: rgba(0, 78, 145, .07);
+  color: #365a72;
+  font-size: .8rem;
+  font-weight: 850;
+  line-height: 1.3;
 }
 .photo-montage-actions {
   display: flex;
@@ -5436,9 +5538,15 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
     width: 100%;
     min-width: 0;
   }
-  .photo-montage-controls > p {
+  .photo-montage-controls-head {
     margin-bottom: 7px;
+  }
+  .photo-montage-controls-head p {
     font-size: .84rem;
+  }
+  .photo-montage-controls-head > span {
+    padding: 4px 7px;
+    font-size: .68rem;
   }
   .photo-montage-template-grid {
     display: flex;
@@ -5454,15 +5562,23 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   }
   .photo-montage-template {
     flex: 0 0 min(72vw, 240px);
-    min-height: 108px;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 8px;
+    min-height: 104px;
     border-radius: 14px;
     padding: 10px;
     scroll-snap-align: start;
   }
-  .photo-montage-template strong {
+  .photo-montage-template-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
     font-size: .9rem;
   }
-  .photo-montage-template span {
+  .photo-montage-template-copy strong {
+    font-size: .9rem;
+  }
+  .photo-montage-template-copy > span {
     display: -webkit-box;
     overflow: hidden;
     margin-top: 4px;
@@ -5472,7 +5588,9 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
     -webkit-line-clamp: 2;
   }
   .photo-montage-template small {
-    margin-top: 6px;
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-top: 0;
     font-size: .7rem;
   }
   .photo-montage-availability {
@@ -5490,6 +5608,20 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .photo-montage-preview-card img {
     max-height: 56vh;
     border-radius: 14px;
+  }
+  .photo-montage-preview-head {
+    gap: 8px;
+  }
+  .photo-montage-preview-head strong {
+    font-size: .92rem;
+  }
+  .photo-montage-preview-head > span {
+    padding: 6px 8px;
+    font-size: .65rem;
+  }
+  .photo-montage-notice {
+    padding: 8px 9px;
+    font-size: .72rem;
   }
   .photo-montage-actions {
     display: grid;
