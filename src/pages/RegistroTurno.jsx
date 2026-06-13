@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { listTurnRecordsByDate, maskCustomerWhatsapp, normalizeCustomerWhatsapp, saveTurnRecord, updateTurnRecordFollowUp } from '../services/turnRecordsService.js';
+import {
+  isValidCustomerWhatsapp,
+  listTurnRecordsByDate,
+  maskCustomerWhatsapp,
+  normalizeCustomerWhatsapp,
+  saveTurnRecord,
+  updateTurnRecordFollowUp,
+} from '../services/turnRecordsService.js';
 
 const TURN_OPTIONS = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
 const MONTH_NAMES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+const INTERNAL_ACCESS_SESSION_KEY = 'yaku_caja_unlocked';
 const EMPTY_COUNTS = {
   standardCount: 0,
   fullPassCount: 0,
@@ -117,6 +125,62 @@ function buildTurnWhatsappUrl(record) {
 }
 
 export default function RegistroTurno() {
+  const [accessGranted, setAccessGranted] = useState(readInternalAccessSession);
+  const [pin, setPin] = useState('');
+  const [accessError, setAccessError] = useState('');
+  const configuredPin = String(import.meta.env.VITE_CAJA_PIN || '').trim();
+
+  const submitAccess = (event) => {
+    event.preventDefault();
+    setAccessError('');
+    if (!configuredPin) {
+      setAccessError('El acceso interno no está configurado. Consulta con el responsable del sistema.');
+      return;
+    }
+    if (pin.trim() !== configuredPin) {
+      setAccessError('PIN incorrecto. Intenta nuevamente.');
+      setPin('');
+      return;
+    }
+    writeInternalAccessSession();
+    setPin('');
+    setAccessGranted(true);
+  };
+
+  if (!accessGranted) {
+    return (
+      <main className="turn-access-page">
+        <form className="turn-access-card" onSubmit={submitAccess}>
+          <span>YakuExpress interno</span>
+          <h1>Acceso interno</h1>
+          <p>Ingresa el PIN del equipo para registrar turnos.</p>
+          <label>
+            <span>PIN</span>
+            <input
+              type="password"
+              inputMode="numeric"
+              autoComplete="current-password"
+              value={pin}
+              onChange={(event) => {
+                setPin(event.target.value);
+                setAccessError('');
+              }}
+              placeholder="Ingresa el PIN"
+              autoFocus
+            />
+          </label>
+          {accessError && <p className="turn-access-error" role="alert">{accessError}</p>}
+          <button type="submit" disabled={!pin.trim()}>Ingresar</button>
+          <small>El PIN no se guarda en este dispositivo.</small>
+        </form>
+      </main>
+    );
+  }
+
+  return <RegistroTurnoWorkspace />;
+}
+
+function RegistroTurnoWorkspace() {
   const today = useMemo(() => localDateValue(), []);
   const [date, setDate] = useState(today);
   const [turnTime, setTurnTime] = useState(TURN_OPTIONS[0]);
@@ -251,20 +315,27 @@ export default function RegistroTurno() {
   const submitFollowUp = async (event) => {
     event.preventDefault();
     if (!followUpRecord?.id) return;
-    setIsUpdatingFollowUp(true);
     setFollowUpStatus({ tone: 'success', text: '' });
     const canUseWhatsapp = followUpRecord.hasFreePhotoBenefit || followUpRecord.fullPassCount > 0;
+    const safeFollowUpWhatsapp = canUseWhatsapp ? normalizeCustomerWhatsapp(followUpForm.customerWhatsapp) : '';
+    if (safeFollowUpWhatsapp && !isValidCustomerWhatsapp(safeFollowUpWhatsapp)) {
+      setFollowUpStatus({ tone: 'error', text: 'Ingresa un WhatsApp válido o deja el campo vacío.' });
+      return;
+    }
+    setIsUpdatingFollowUp(true);
     const result = await updateTurnRecordFollowUp(followUpRecord.id, {
       freePhotoRedeemed: followUpForm.freePhotoRedeemed,
       purchasedExtraPhotos: followUpForm.purchasedExtraPhotos,
-      customerWhatsapp: canUseWhatsapp ? followUpForm.customerWhatsapp : '',
+      customerWhatsapp: safeFollowUpWhatsapp,
       notes: followUpForm.notes,
     });
 
     if (result.ok) {
       setFollowUpStatus({ tone: 'success', text: 'Seguimiento actualizado.' });
       setMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
-      setMessage(result.storage === 'supabase' ? 'Seguimiento actualizado.' : 'Seguimiento actualizado en este dispositivo.');
+      setMessage(result.storage === 'supabase'
+        ? 'Seguimiento actualizado.'
+        : 'Seguimiento operativo actualizado en este dispositivo. WhatsApp y notas no se guardan localmente.');
       const refreshed = await listTurnRecordsByDate(date);
       if (refreshed.ok) {
         setRecords(refreshed.data);
@@ -284,12 +355,22 @@ export default function RegistroTurno() {
   };
   const saveRecord = async (event) => {
     event.preventDefault();
-    setIsSaving(true);
     setMessage('');
     const safeFullPassCount = numberValue(counts.fullPassCount);
     const safeHasFreePhotoBenefit = safeFullPassCount > 0;
     const safeTotalPeople = Math.max(numberValue(totalPeople), calculatedPeople);
     const safeCustomerWhatsapp = safeHasFreePhotoBenefit ? normalizeCustomerWhatsapp(customerWhatsapp) : '';
+    if (safeTotalPeople <= 0) {
+      setMessageTone('error');
+      setMessage('Agrega al menos una persona para registrar el turno.');
+      return;
+    }
+    if (safeCustomerWhatsapp && !isValidCustomerWhatsapp(safeCustomerWhatsapp)) {
+      setMessageTone('error');
+      setMessage('Ingresa un WhatsApp válido o deja el campo vacío.');
+      return;
+    }
+    setIsSaving(true);
     const record = {
       id: buildId(),
       date,
@@ -314,7 +395,9 @@ export default function RegistroTurno() {
     if (result.ok) {
       setLastRecord(result.data);
       setMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
-      setMessage(result.storage === 'supabase' ? 'Registro guardado en la nube.' : 'Registro guardado en este dispositivo. La nube todavía no está disponible.');
+      setMessage(result.storage === 'supabase'
+        ? 'Registro guardado en la nube.'
+        : 'Registro operativo guardado en este dispositivo. WhatsApp y notas no se guardaron localmente.');
       const refreshed = await listTurnRecordsByDate(date);
       if (refreshed.ok) {
         setRecords(refreshed.data);
@@ -696,4 +779,21 @@ export default function RegistroTurno() {
       )}
     </main>
   );
+}
+
+function readInternalAccessSession() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(INTERNAL_ACCESS_SESSION_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeInternalAccessSession() {
+  try {
+    window.sessionStorage.setItem(INTERNAL_ACCESS_SESSION_KEY, 'true');
+  } catch {
+    // El acceso sigue activo en memoria aunque sessionStorage no esté disponible.
+  }
 }

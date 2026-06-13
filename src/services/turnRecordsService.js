@@ -18,10 +18,29 @@ export function normalizeCustomerWhatsapp(value) {
     .trim();
 }
 
+export function isValidCustomerWhatsapp(value) {
+  const normalized = normalizeCustomerWhatsapp(value);
+  if (!normalized) return false;
+  const digits = normalized.replace(/\D/g, '');
+  if (digits.length === 9) return true;
+  if (digits.startsWith('51') && digits.length === 11) return true;
+  return digits.length >= 10 && digits.length <= 15;
+}
+
 export function maskCustomerWhatsapp(value) {
   const digits = String(value || '').replace(/\D/g, '');
   if (!digits) return '';
   return `******${digits.slice(-3)}`;
+}
+
+function sanitizeLocalRecord(record) {
+  const {
+    customerWhatsapp,
+    customer_whatsapp,
+    notes,
+    ...safeRecord
+  } = record || {};
+  return safeRecord;
 }
 
 function readAllLocalRecords() {
@@ -29,14 +48,19 @@ function readAllLocalRecords() {
   try {
     const value = window.localStorage.getItem(STORAGE_KEY);
     const parsed = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const sanitized = parsed.map(sanitizeLocalRecord);
+    if (JSON.stringify(parsed) !== JSON.stringify(sanitized)) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+    }
+    return sanitized;
   } catch {
     return [];
   }
 }
 
 function writeAllLocalRecords(records) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records.map(sanitizeLocalRecord)));
 }
 
 function buildLocalId() {
@@ -47,7 +71,8 @@ function buildLocalId() {
 function normalizeTurnRecord(record, storage = 'localStorage') {
   const fullPassCount = numberValue(record.fullPassCount ?? record.full_pass_count);
   const hasFreePhotoBenefit = fullPassCount > 0;
-  const customerWhatsapp = hasFreePhotoBenefit
+  const isLocalRecord = storage === 'localStorage' || record.storage === 'localStorage';
+  const customerWhatsapp = !isLocalRecord && hasFreePhotoBenefit
     ? normalizeCustomerWhatsapp(record.customerWhatsapp ?? record.customer_whatsapp)
     : '';
   return {
@@ -66,7 +91,7 @@ function normalizeTurnRecord(record, storage = 'localStorage') {
     freePhotoRedeemed: hasFreePhotoBenefit ? booleanValue(record.freePhotoRedeemed ?? record.free_photo_redeemed) : false,
     purchasedExtraPhotos: booleanValue(record.purchasedExtraPhotos ?? record.purchased_extra_photos),
     customerWhatsapp,
-    notes: String(record.notes || '').trim(),
+    notes: isLocalRecord ? '' : String(record.notes || '').trim(),
     createdAt: record.createdAt || record.created_at || new Date().toISOString(),
     updatedAt: record.updatedAt || record.updated_at || null,
     storage: record.storage || storage,
@@ -141,13 +166,12 @@ export function updateTurnRecordFollowUpLocal(recordId, updates) {
     const index = current.findIndex((item) => item.id === recordId);
     if (index < 0) return { ok: false, storage: 'none', error: new Error('Registro local no encontrado') };
     const currentRecord = current[index];
-    const canStoreWhatsapp = currentRecord.hasFreePhotoBenefit || currentRecord.fullPassCount > 0;
     const nextRecord = normalizeTurnRecord({
       ...currentRecord,
       freePhotoRedeemed: booleanValue(updates.freePhotoRedeemed ?? updates.free_photo_redeemed),
       purchasedExtraPhotos: booleanValue(updates.purchasedExtraPhotos ?? updates.purchased_extra_photos),
-      customerWhatsapp: canStoreWhatsapp ? normalizeCustomerWhatsapp(updates.customerWhatsapp ?? updates.customer_whatsapp) : '',
-      notes: String(updates.notes || '').trim(),
+      customerWhatsapp: '',
+      notes: '',
       updatedAt: new Date().toISOString(),
       storage: 'localStorage',
     }, 'localStorage');
