@@ -5327,6 +5327,7 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   font-weight: 950;
 }
 .turn-followup-field input,
+.turn-followup-field select,
 .turn-followup-field textarea {
   width: 100%;
   border: 1px solid rgba(0, 78, 145, .16);
@@ -5438,6 +5439,512 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   .turn-whatsapp-secondary,
   .turn-whatsapp-disabled {
     width: 100%;
+  }
+}
+
+/* Fase 3 Turnos - organizacion visual y responsive operativo */
+.turn-register-page {
+  overflow-x: hidden;
+  padding-top: 18px;
+}
+.turn-register-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  margin-bottom: 14px;
+}
+.turn-register-hero > div:first-child {
+  padding: clamp(20px, 3vw, 30px);
+}
+.turn-register-hero h1 {
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  line-height: 1;
+}
+.turn-register-privacy {
+  padding: 20px;
+}
+.turn-register-privacy strong {
+  font-size: 1.08rem;
+}
+.turn-overview-section,
+.turn-records-section {
+  max-width: 1180px;
+  margin: 0 auto 14px;
+}
+.turn-section-header,
+.turn-followup-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.turn-register-card-head p,
+.turn-records-header .turn-register-card-head p {
+  max-width: 720px;
+  margin: -8px 0 0;
+  color: #61778f;
+  font-size: .88rem;
+  line-height: 1.4;
+}
+.turn-overview-source {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 3px;
+  min-width: 128px;
+  border: 1px solid rgba(0, 78, 145, .1);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #f5f9fc;
+}
+.turn-overview-source span {
+  color: #6b7e94;
+  font-size: .68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.turn-overview-source strong {
+  color: #001d55;
+  font-size: .88rem;
+}
+.turn-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.turn-overview-grid article {
+  min-width: 0;
+  border: 1px solid rgba(0, 78, 145, .1);
+  border-radius: 16px;
+  padding: 13px;
+  background: #f7fafc;
+}
+.turn-overview-grid article.accent {
+  border-color: rgba(0, 143, 170, .25);
+  background: linear-gradient(135deg, rgba(0, 178, 213, .12), rgba(255, 255, 255, .94));
+}
+.turn-overview-grid article.attention {
+  border-color: rgba(230, 157, 0, .28);
+  background: linear-gradient(135deg, rgba(255, 206, 0, .2), rgba(255, 255, 255, .95));
+}
+.turn-overview-grid span,
+.turn-overview-grid small {
+  display: block;
+  color: #61778f;
+  font-size: .72rem;
+  line-height: 1.25;
+}
+.turn-overview-grid strong {
+  display: block;
+  margin: 5px 0 3px;
+  color: #001d55;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.turn-overview-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.turn-overview-details div {
+  min-width: 0;
+  border-left: 3px solid rgba(0, 143, 170, .24);
+  padding: 7px 9px;
+}
+.turn-overview-details strong {
+  display: block;
+  color: #001d55;
+  font-size: 1.08rem;
+}
+.turn-overview-details span {
+  display: block;
+  margin-top: 2px;
+  color: #61778f;
+  font-size: .7rem;
+  line-height: 1.2;
+}
+.turn-register-layout {
+  grid-template-columns: minmax(0, 1fr) 330px;
+  margin-bottom: 14px;
+}
+.turn-register-form > .turn-register-card-head {
+  margin-bottom: 4px;
+}
+.turn-form-section {
+  border-top: 1px solid rgba(0, 78, 145, .1);
+  padding: 18px 0 4px;
+}
+.turn-form-section:first-of-type {
+  margin-top: 14px;
+}
+.turn-form-section-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 13px;
+}
+.turn-form-section-head > span {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #001d55;
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 950;
+}
+.turn-form-section-head strong,
+.turn-form-section-head small {
+  display: block;
+}
+.turn-form-section-head strong {
+  color: #001d55;
+  font-size: .95rem;
+}
+.turn-form-section-head small {
+  margin-top: 2px;
+  color: #61778f;
+  font-size: .74rem;
+  line-height: 1.25;
+}
+.turn-register-fields input,
+.turn-register-fields select,
+.turn-whatsapp-field input,
+.turn-notes-field textarea {
+  min-height: 46px;
+}
+.turn-register-fields small {
+  color: #61778f;
+  font-size: .74rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.turn-commercial-fields {
+  align-items: start;
+}
+.turn-counter-grid {
+  margin: 0;
+}
+.turn-counter-control {
+  min-width: 0;
+  padding: 10px;
+}
+.turn-counter-control.has-value {
+  border-color: rgba(0, 143, 170, .3);
+  background: rgba(0, 178, 213, .07);
+}
+.turn-counter-actions {
+  grid-template-columns: 42px 34px 42px;
+}
+.turn-counter-actions button {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 1.25rem;
+}
+.turn-counter-actions b {
+  color: #001d55;
+  font-size: 1.08rem;
+}
+.turn-benefit-card,
+.turn-whatsapp-field,
+.turn-commercial-switches {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+.turn-notes-field {
+  margin-top: 12px;
+}
+.turn-privacy-note {
+  margin-top: 10px;
+}
+.turn-operations-guide > span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 6px 9px;
+  background: rgba(255, 206, 0, .24);
+  color: #8a5400;
+  font-size: .7rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.turn-operations-guide h2 {
+  margin: 10px 0;
+  color: #001d55;
+  font-size: 1.25rem;
+}
+.turn-operations-guide ol {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding-left: 22px;
+  color: #526a86;
+  font-size: .86rem;
+  line-height: 1.35;
+}
+.turn-register-stack {
+  position: sticky;
+  top: 16px;
+  gap: 12px;
+}
+.turn-last-record {
+  border-color: rgba(0, 143, 170, .18);
+}
+.turn-records-header {
+  align-items: center;
+}
+.turn-records-header .turn-register-card-head h2 {
+  margin-bottom: 12px;
+}
+.turn-record-source {
+  margin-top: 10px;
+}
+.turn-record-item {
+  grid-template-columns: minmax(220px, 1fr) minmax(300px, auto) 180px;
+  align-items: stretch;
+  padding: 14px;
+}
+.turn-record-main {
+  min-width: 0;
+}
+.turn-record-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+}
+.turn-record-title > span {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(0, 178, 213, .11);
+  font-size: .76rem;
+}
+.turn-record-title > strong {
+  overflow-wrap: anywhere;
+  font-size: 1.12rem;
+}
+.turn-record-note {
+  display: block;
+  margin-top: 7px;
+  line-height: 1.35;
+}
+.turn-record-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  align-content: center;
+}
+.turn-record-item dl div {
+  min-width: 0;
+}
+.turn-record-item dd {
+  overflow-wrap: anywhere;
+}
+.turn-record-actions {
+  min-width: 0;
+}
+.turn-followup-panel {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.turn-followup-head .turn-register-card-head {
+  min-width: 0;
+}
+.turn-followup-close {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #edf4fb;
+  color: #001d55;
+  cursor: pointer;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+.turn-followup-close:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+@media (max-width: 980px) {
+  .turn-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .turn-overview-details {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .turn-record-item {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, auto);
+  }
+  .turn-record-actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .turn-register-hero {
+    grid-template-columns: 1fr;
+  }
+  .turn-register-layout {
+    grid-template-columns: 1fr;
+  }
+  .turn-register-privacy {
+    min-height: 0;
+  }
+  .turn-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .turn-overview-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .turn-register-stack {
+    position: static;
+  }
+  .turn-record-item {
+    grid-template-columns: 1fr;
+  }
+  .turn-record-actions {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .turn-register-page {
+    padding: 10px 8px 28px;
+  }
+  .turn-register-hero,
+  .turn-overview-section,
+  .turn-register-layout,
+  .turn-records-section {
+    margin-bottom: 10px;
+  }
+  .turn-register-hero > div:first-child,
+  .turn-register-privacy,
+  .turn-register-card {
+    border-radius: 16px;
+  }
+  .turn-register-hero > div:first-child {
+    padding: 18px 15px;
+  }
+  .turn-register-hero h1 {
+    font-size: 2rem;
+  }
+  .turn-register-hero p {
+    font-size: .95rem;
+  }
+  .turn-register-privacy {
+    padding: 14px 15px;
+  }
+  .turn-register-card {
+    padding: 14px 12px;
+  }
+  .turn-section-header,
+  .turn-records-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .turn-overview-source {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+  }
+  .turn-overview-grid {
+    gap: 7px;
+    margin-top: 13px;
+  }
+  .turn-overview-grid article {
+    border-radius: 12px;
+    padding: 10px;
+  }
+  .turn-overview-grid strong {
+    font-size: 1.55rem;
+  }
+  .turn-overview-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .turn-register-fields,
+  .turn-counter-grid {
+    grid-template-columns: 1fr;
+  }
+  .turn-form-section {
+    padding-top: 15px;
+  }
+  .turn-counter-control {
+    flex-direction: row;
+    align-items: center;
+  }
+  .turn-counter-actions {
+    grid-template-columns: 46px 34px 46px;
+  }
+  .turn-counter-actions button {
+    width: 46px;
+    height: 46px;
+  }
+  .turn-calculated-total {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .turn-calculated-total button {
+    min-height: 42px;
+  }
+  .turn-commercial-switches {
+    grid-template-columns: 1fr;
+  }
+  .turn-register-submit {
+    min-height: 50px;
+    position: sticky;
+    bottom: 8px;
+    z-index: 2;
+  }
+  .turn-records-header button {
+    width: 100%;
+  }
+  .turn-record-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .turn-record-actions {
+    grid-template-columns: 1fr;
+  }
+  .turn-followup-modal {
+    align-items: end;
+    padding: 8px;
+  }
+  .turn-followup-panel {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    border-radius: 18px 18px 10px 10px;
+    padding: 16px 13px;
+  }
+  .turn-followup-options {
+    grid-template-columns: 1fr;
+  }
+  .turn-followup-actions {
+    flex-direction: column-reverse;
+  }
+  .turn-followup-actions button {
+    width: 100%;
+    min-height: 46px;
+  }
+}
+
+@media (max-width: 350px) {
+  .turn-overview-grid,
+  .turn-overview-details,
+  .turn-record-metrics {
+    grid-template-columns: 1fr !important;
+  }
+  .turn-counter-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .turn-counter-actions {
+    grid-template-columns: 48px 1fr 48px;
   }
 }
 /* Fase 8K - Montajes premium locales */

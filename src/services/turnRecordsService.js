@@ -72,7 +72,7 @@ function normalizeTurnRecord(record, storage = 'localStorage') {
   const fullPassCount = numberValue(record.fullPassCount ?? record.full_pass_count);
   const hasFreePhotoBenefit = fullPassCount > 0;
   const isLocalRecord = storage === 'localStorage' || record.storage === 'localStorage';
-  const customerWhatsapp = !isLocalRecord && hasFreePhotoBenefit
+  const customerWhatsapp = !isLocalRecord
     ? normalizeCustomerWhatsapp(record.customerWhatsapp ?? record.customer_whatsapp)
     : '';
   return {
@@ -115,7 +115,7 @@ export function normalizeTurnRecordForDb(record) {
     has_free_photo_benefit: normalized.hasFreePhotoBenefit,
     free_photo_redeemed: normalized.freePhotoRedeemed,
     purchased_extra_photos: normalized.purchasedExtraPhotos,
-    customer_whatsapp: normalized.fullPassCount > 0 && normalized.customerWhatsapp ? normalized.customerWhatsapp : null,
+    customer_whatsapp: normalized.customerWhatsapp || null,
     notes: normalized.notes || null,
     source: 'registro-turno',
   };
