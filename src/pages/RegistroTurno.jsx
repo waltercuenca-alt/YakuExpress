@@ -132,12 +132,9 @@ function normalizeWhatsappForLink(value) {
 function buildTurnWhatsappMessage(record) {
   const code = String(record?.photoCode || record?.photo_code || '').trim();
   if (!code) {
-    return 'Hola, somos de Yakupark. Puedes acercarte a Caja para revisar y comprar las fotos de tu visita.';
+    return 'Hola, somos del sector de Fotografía de Yakupark. Acércate a Caja después de tu aventura en Yakupark para elegir tu foto gratuita.';
   }
-  const galleryUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/fotos/${encodeURIComponent(code)}`
-    : '';
-  return `Hola, somos de Yakupark. Ya puedes revisar las fotos de tu visita con el código ${code}.${galleryUrl ? ` ${galleryUrl}` : ''} Puedes elegir tus fotos o acercarte a Caja para comprar las que más te gusten.`;
+  return `Hola, somos del sector de Fotografía de Yakupark. Tu código de fotos es ${code}. Acércate a Caja después de tu aventura en Yakupark para elegir tu foto gratuita.`;
 }
 
 function buildTurnWhatsappUrl(record) {
