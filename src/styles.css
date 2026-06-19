@@ -6516,3 +6516,287 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
     line-height: 1.15;
   }
 }
+
+/* Fase 2 - Optimizacion mobile-first de la galeria cliente */
+@media (max-width: 760px) {
+  .photos-poster-body {
+    gap: 14px;
+  }
+
+  .photo-buying-guide__steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .photo-buying-guide__step {
+    align-items: start;
+    min-height: 58px;
+  }
+
+  .photos-results {
+    padding: 11px 7px 13px;
+  }
+
+  .photos-results-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: start;
+    padding: 0 4px;
+  }
+
+  .photos-gallery-heading p {
+    max-width: 32rem;
+    line-height: 1.32;
+  }
+
+  .photos-selection-summary {
+    width: auto;
+    min-width: 96px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 2px;
+    border-radius: 14px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+
+  .photos-selection-summary small,
+  .photos-selection-summary strong,
+  .photos-selection-summary span {
+    grid-column: 1;
+  }
+
+  .photos-selection-summary strong {
+    font-size: 1.5rem;
+  }
+
+  .photos-selection-summary span {
+    font-size: .69rem;
+  }
+
+  .photos-grid {
+    gap: 9px;
+  }
+
+  .photo-card:hover,
+  .photo-card.selected {
+    transform: none;
+  }
+
+  .photo-selected-badge {
+    right: 6px;
+    bottom: 6px;
+    max-width: calc(100% - 12px);
+    padding: 6px 8px;
+    font-size: .62rem;
+    white-space: nowrap;
+  }
+
+  .photo-select {
+    min-height: 52px;
+    gap: 7px;
+    padding: 9px 7px;
+    font-size: .78rem;
+  }
+
+  .photo-select input {
+    width: 28px;
+    height: 28px;
+  }
+
+  .photo-gallery-progress {
+    gap: 10px;
+    margin: 18px 3px 0;
+    border-top: 1px solid rgba(255, 255, 255, .14);
+    padding-top: 14px;
+  }
+
+  .photo-gallery-progress-copy {
+    gap: 8px;
+  }
+
+  .photo-gallery-progress span {
+    font-size: .82rem;
+  }
+
+  .photo-gallery-progress button {
+    min-height: 52px;
+    font-size: .9rem;
+  }
+
+  .photo-package {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 10px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    padding: 12px;
+  }
+
+  .photo-package > span {
+    font-size: .72rem;
+  }
+
+  .photo-package strong {
+    font-size: .9rem;
+    line-height: 1.2;
+  }
+
+  .photo-package-total {
+    min-width: 106px;
+    padding: 9px 11px;
+  }
+
+  .photo-package-total b {
+    font-size: 1.45rem;
+  }
+
+  .photos-shell.has-mobile-checkout {
+    padding-bottom: calc(82px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-photo-checkout {
+    left: 8px;
+    right: 8px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    text-align: left;
+  }
+
+  .mobile-photo-checkout strong {
+    font-size: .86rem;
+  }
+
+  .mobile-photo-checkout button {
+    width: auto;
+    min-width: 150px;
+    min-height: 48px;
+    padding: 10px 12px;
+  }
+
+  .photo-lightbox {
+    gap: 7px;
+    padding: 54px 6px max(7px, env(safe-area-inset-bottom));
+  }
+
+  .photo-lightbox-stage,
+  .photo-lightbox-preview,
+  .photo-lightbox-preview img {
+    max-height: 53vh;
+  }
+
+  .photo-lightbox-close {
+    top: 8px;
+    right: 8px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .photo-lightbox-nav {
+    width: 44px;
+    height: 44px;
+  }
+
+  .photo-lightbox-panel {
+    padding: 9px;
+  }
+
+  .photo-lightbox-toolbar {
+    gap: 7px;
+  }
+
+  .photo-lightbox-montage,
+  .photo-lightbox-select {
+    min-height: 46px;
+    padding: 9px 10px;
+    font-size: .78rem;
+  }
+
+  .photo-filmstrip {
+    gap: 7px;
+    padding: 2px 2px 5px;
+    scroll-padding-inline: 8px;
+  }
+
+  .photo-filmstrip-item {
+    width: 62px;
+    min-width: 62px;
+    max-width: 62px;
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+  }
+}
+
+@media (max-width: 360px) {
+  .photo-buying-guide__steps {
+    grid-template-columns: 1fr;
+  }
+
+  .photo-buying-guide__step {
+    min-height: 0;
+  }
+
+  .photos-results-head {
+    grid-template-columns: minmax(0, 1fr) 90px;
+    gap: 7px;
+  }
+
+  .photos-selection-summary {
+    min-width: 0;
+    padding: 7px 6px;
+  }
+
+  .photos-selection-summary strong {
+    font-size: 1.35rem;
+  }
+
+  .photos-selection-summary span {
+    font-size: .64rem;
+  }
+
+  .photo-selected-badge {
+    padding: 5px 6px;
+    font-size: .58rem;
+  }
+
+  .photo-select {
+    min-height: 50px;
+    padding: 8px 5px;
+    font-size: .72rem;
+  }
+
+  .photo-select input {
+    width: 26px;
+    height: 26px;
+  }
+
+  .photos-shell.has-mobile-checkout {
+    padding-bottom: calc(116px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-photo-checkout {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .mobile-photo-checkout button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .photo-lightbox-stage,
+  .photo-lightbox-preview,
+  .photo-lightbox-preview img {
+    max-height: 50vh;
+  }
+
+  .photo-filmstrip-item {
+    width: 58px;
+    min-width: 58px;
+    max-width: 58px;
+    height: 48px;
+    min-height: 48px;
+    max-height: 48px;
+  }
+}
