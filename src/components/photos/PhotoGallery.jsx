@@ -34,7 +34,14 @@ function PhotoGallery({ photos, selectedIds, onToggle, onOpen, watermarkEnabled 
 
       {remainingCount > 0 && (
         <div className="photo-gallery-progress" aria-live="polite">
-          <span>Mostrando {visiblePhotos.length} de {photos.length} fotos</span>
+          <div className="photo-gallery-progress-copy">
+            <span>Mostrando {visiblePhotos.length} de {photos.length} fotos</span>
+            <progress
+              value={visiblePhotos.length}
+              max={photos.length}
+              aria-label={`${visiblePhotos.length} de ${photos.length} fotos visibles`}
+            />
+          </div>
           <button
             type="button"
             onClick={() => setVisibleCount((current) => Math.min(current + VISIBLE_PHOTOS_STEP, photos.length))}
@@ -65,6 +72,7 @@ const PhotoCard = memo(function PhotoCard({
             <small>Vista previa</small>
           </span>
         )}
+        {selected && <span className="photo-selected-badge" aria-hidden="true">Lista para tu pedido</span>}
       </button>
       <label className="photo-select">
         <input

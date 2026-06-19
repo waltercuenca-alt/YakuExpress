@@ -239,11 +239,18 @@ export default function Fotos({ navigate, path = '' }) {
         <section className="photos-poster-body">
           <div className="photos-results">
             <div className="photos-results-head">
-              <div>
-                <small>Tus recuerdos</small>
+              <div className="photos-gallery-heading">
+                <small>{searchedCode ? 'Tu galeria' : 'Tus recuerdos'}</small>
                 <strong>{searchedCode || 'Galeria Yaku'}</strong>
+                {photos.length > 0 && (
+                  <p>{photos.length} fotos disponibles. Revisa cada foto y marca tus favoritas.</p>
+                )}
               </div>
-              <span>{selectedPhotos.length} fotos seleccionadas</span>
+              <div className={`photos-selection-summary ${selectedPhotos.length ? 'has-selection' : ''}`} aria-live="polite">
+                <small>Tu seleccion</small>
+                <strong>{selectedPhotos.length}</strong>
+                <span>{selectedPhotos.length === 1 ? 'foto elegida' : 'fotos elegidas'}</span>
+              </div>
             </div>
 
             {loading && <PhotoLoading />}
