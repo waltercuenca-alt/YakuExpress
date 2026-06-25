@@ -6800,3 +6800,157 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
     max-height: 48px;
   }
 }
+
+/* Fase 5 - Ajustes visuales mobile conservadores para galeria y compra */
+@media (max-width: 760px) {
+  .photos-results {
+    border-color: rgba(255, 255, 255, .24);
+    background: rgba(0, 36, 91, .46);
+  }
+
+  .photos-gallery-heading strong {
+    line-height: 1.08;
+  }
+
+  .photos-gallery-heading p,
+  .photo-gallery-progress span {
+    color: #ffffff;
+    text-shadow: 0 1px 5px rgba(0, 18, 52, .62);
+  }
+
+  .photos-grid {
+    align-items: start;
+  }
+
+  .photo-card {
+    box-shadow: 0 14px 24px rgba(0, 18, 52, .24);
+  }
+
+  .photo-card.selected {
+    border-color: #ffce00;
+    box-shadow: 0 0 0 3px rgba(255, 206, 0, .34), 0 14px 26px rgba(0, 18, 52, .28);
+  }
+
+  .photo-preview-number {
+    background: linear-gradient(135deg, #003c7c, #00a7e1);
+    box-shadow: 0 8px 18px rgba(0, 18, 52, .34);
+  }
+
+  .photo-selected-badge {
+    border-color: #ffffff;
+    background: linear-gradient(135deg, #003c7c, #e1005a);
+    box-shadow: 0 8px 18px rgba(0, 18, 52, .38);
+  }
+
+  .photo-select {
+    justify-content: center;
+    color: #003c7c;
+    background: linear-gradient(180deg, #ffffff, #f3fcff);
+  }
+
+  .photo-card.selected .photo-select {
+    color: #001d55;
+    background: linear-gradient(180deg, #fff8d6, #ffffff);
+  }
+
+  .photo-gallery-progress {
+    border-radius: 16px;
+    padding: 14px 10px 0;
+  }
+
+  .photo-gallery-progress progress {
+    height: 9px;
+    background: rgba(255, 255, 255, .28);
+  }
+
+  .photo-gallery-progress progress::-webkit-progress-bar {
+    background: rgba(255, 255, 255, .28);
+  }
+
+  .photo-gallery-progress button,
+  .mobile-photo-checkout button {
+    box-shadow: 0 12px 24px rgba(0, 18, 52, .28);
+  }
+
+  .photo-package {
+    border-color: rgba(255, 206, 0, .32);
+  }
+
+  .photo-package-total {
+    background: #ffffff;
+    color: #001d55;
+  }
+
+  .photo-summary-backdrop {
+    padding: 10px;
+  }
+
+  .photo-summary-modal {
+    max-height: calc(100dvh - 20px);
+    overflow: auto;
+  }
+
+  .photo-summary-grid {
+    gap: 8px;
+  }
+
+  .photo-summary-grid div {
+    min-width: 0;
+  }
+
+  .photo-summary-grid strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 430px) {
+  .photos-results-head {
+    grid-template-columns: 1fr;
+  }
+
+  .photos-selection-summary {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    text-align: left;
+  }
+
+  .photos-selection-summary strong {
+    align-self: center;
+  }
+
+  .photos-selection-summary span {
+    align-self: center;
+  }
+
+  .photo-lightbox-toolbar > div:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .photo-lightbox-toolbar small {
+    text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .photo-preview-number {
+    width: 32px;
+    height: 32px;
+    font-size: .82rem;
+  }
+
+  .photo-gallery-progress span {
+    font-size: .76rem;
+  }
+
+  .photo-package {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px;
+  }
+
+  .photo-package-total {
+    min-width: 92px;
+  }
+}
