@@ -7511,6 +7511,18 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   overflow-wrap: anywhere;
 }
 
+.turn-history-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.turn-history-actions .turn-whatsapp-button,
+.turn-history-actions .turn-whatsapp-disabled {
+  min-height: 40px;
+  width: min(190px, 100%);
+}
+
 .turn-history-empty {
   border: 1px dashed rgba(0, 167, 225, .32);
   border-radius: 18px;
@@ -7528,6 +7540,15 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 
   .turn-history-record {
     grid-template-columns: 1fr;
+  }
+
+  .turn-history-actions {
+    justify-content: stretch;
+  }
+
+  .turn-history-actions .turn-whatsapp-button,
+  .turn-history-actions .turn-whatsapp-disabled {
+    width: 100%;
   }
 }
 

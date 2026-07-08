@@ -845,6 +845,25 @@ function RegistroTurnoWorkspace() {
                             <div><dt>Full Pass</dt><dd>{record.fullPassCount}</dd></div>
                             <div><dt>Fotos</dt><dd>{record.freePhotoRedeemed || record.purchasedExtraPhotos ? 'Si' : 'No'}</dd></div>
                           </dl>
+                          <div className="turn-history-actions">
+                            {record.customerWhatsapp ? (
+                              buildTurnWhatsappUrl(record) ? (
+                                <a
+                                  className="turn-whatsapp-button"
+                                  href={buildTurnWhatsappUrl(record)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label="Enviar WhatsApp desde historial"
+                                >
+                                  Enviar WhatsApp
+                                </a>
+                              ) : (
+                                <span className="turn-whatsapp-disabled">WhatsApp inválido</span>
+                              )
+                            ) : (
+                              <span className="turn-whatsapp-disabled">Sin WhatsApp</span>
+                            )}
+                          </div>
                         </article>
                       ))}
                     </div>
