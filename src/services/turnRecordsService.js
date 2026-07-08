@@ -159,6 +159,27 @@ export function listTurnRecordsLocalByDate(date) {
     return { ok: false, storage: 'none', error };
   }
 }
+
+export function listTurnRecordsLocalHistory({ from, to } = {}) {
+  try {
+    const data = readAllLocalRecords()
+      .map((item) => normalizeTurnRecord(item, item.storage || 'localStorage'))
+      .filter((item) => {
+        if (from && item.date < from) return false;
+        if (to && item.date > to) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const byDate = String(b.date || '').localeCompare(String(a.date || ''));
+        if (byDate) return byDate;
+        return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+      });
+    return { ok: true, storage: 'localStorage', data };
+  } catch (error) {
+    return { ok: false, storage: 'none', error };
+  }
+}
+
 export function updateTurnRecordFollowUpLocal(recordId, updates) {
   try {
     if (!recordId) return { ok: false, storage: 'none', error: new Error('recordId requerido') };
@@ -214,6 +235,28 @@ export async function listTurnRecordsByDate(date) {
     return listTurnRecordsLocalByDate(date);
   }
 }
+
+export async function listTurnRecordsHistory({ from, to } = {}) {
+  try {
+    let query = supabase
+      .from('turn_records')
+      .select('*')
+      .order('record_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(700);
+
+    if (from) query = query.gte('record_date', from);
+    if (to) query = query.lte('record_date', to);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return { ok: true, storage: 'supabase', data: (data || []).map(normalizeDbRecord) };
+  } catch (error) {
+    logSupabaseTurnRecordError('history list', error);
+    return listTurnRecordsLocalHistory({ from, to });
+  }
+}
+
 export async function updateTurnRecordFollowUp(recordId, updates = {}) {
   if (!recordId) return { ok: false, storage: 'none', error: new Error('recordId requerido') };
   const followUpPayload = {

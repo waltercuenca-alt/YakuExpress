@@ -7337,3 +7337,235 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
     padding: 18px 12px;
   }
 }
+
+/* Historial operativo por dias para Registro de Turnos */
+.turn-history-section {
+  max-width: 1180px;
+  margin: 0 auto 16px;
+  border-top: 5px solid #00a7e1;
+}
+
+.turn-history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.turn-history-filters button {
+  min-height: 42px;
+  border: 1px solid rgba(0, 167, 225, .18);
+  border-radius: 999px;
+  padding: 9px 13px;
+  background: #ffffff;
+  color: #003c7c;
+  box-shadow: 0 8px 18px rgba(0, 78, 145, .07);
+}
+
+.turn-history-filters button.active {
+  background: linear-gradient(135deg, #003c7c, #00a7e1);
+  color: #ffffff;
+}
+
+.turn-history-filters label {
+  display: grid;
+  gap: 5px;
+  min-width: min(220px, 100%);
+  color: #365a72;
+  font-size: .78rem;
+  font-weight: 900;
+}
+
+.turn-history-filters input {
+  min-height: 42px;
+  border: 2px solid rgba(0, 167, 225, .22);
+  border-radius: 12px;
+  padding: 9px 11px;
+  color: #003c7c;
+}
+
+.turn-history-days {
+  display: grid;
+  gap: 12px;
+}
+
+.turn-history-day {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(0, 143, 170, .16);
+  border-radius: 20px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 191, 179, .12), transparent 36%),
+    #ffffff;
+  box-shadow: 0 12px 28px rgba(0, 78, 145, .08);
+}
+
+.turn-history-day-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.turn-history-day-head span,
+.turn-history-summary span,
+.turn-history-record span,
+.turn-history-record dt {
+  color: #00799f;
+  font-size: .7rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.turn-history-day-head h3 {
+  margin: 3px 0 0;
+  color: #003c7c;
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.turn-history-day-head > strong {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: #eafbff;
+  color: #003c7c;
+  font-size: .82rem;
+}
+
+.turn-history-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.turn-history-summary div {
+  min-width: 0;
+  border-radius: 14px;
+  padding: 10px;
+  background: linear-gradient(180deg, #f3fcff, #ffffff);
+  box-shadow: inset 0 0 0 1px rgba(0, 167, 225, .12);
+}
+
+.turn-history-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: #003c7c;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.turn-history-details {
+  border-radius: 14px;
+  background: #f7fdff;
+}
+
+.turn-history-details summary {
+  cursor: pointer;
+  padding: 11px 12px;
+  color: #003c7c;
+  font-weight: 950;
+}
+
+.turn-history-records {
+  display: grid;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.turn-history-record {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(280px, 1.2fr);
+  gap: 10px;
+  border: 1px solid rgba(0, 167, 225, .12);
+  border-radius: 14px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.turn-history-record strong {
+  display: block;
+  margin: 2px 0;
+  color: #003c7c;
+  overflow-wrap: anywhere;
+}
+
+.turn-history-record small {
+  color: #526a86;
+  line-height: 1.35;
+}
+
+.turn-history-record dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.turn-history-record dd {
+  margin: 3px 0 0;
+  color: #001d55;
+  font-weight: 950;
+  overflow-wrap: anywhere;
+}
+
+.turn-history-empty {
+  border: 1px dashed rgba(0, 167, 225, .32);
+  border-radius: 18px;
+  padding: 22px;
+  background: linear-gradient(135deg, #f2fcff, #ffffff);
+  color: #365a72;
+  font-weight: 850;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .turn-history-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .turn-history-record {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .turn-history-section {
+    margin-bottom: 10px;
+  }
+
+  .turn-history-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .turn-history-filters button,
+  .turn-history-filters label {
+    width: 100%;
+  }
+
+  .turn-history-filters label {
+    grid-column: 1 / -1;
+  }
+
+  .turn-history-day {
+    border-radius: 16px;
+    padding: 11px;
+  }
+
+  .turn-history-day-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .turn-history-day-head > strong {
+    width: max-content;
+  }
+
+  .turn-history-record dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

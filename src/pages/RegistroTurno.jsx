@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   isValidCustomerWhatsapp,
+  listTurnRecordsHistory,
   listTurnRecordsByDate,
   maskCustomerWhatsapp,
   normalizeCustomerWhatsapp,
@@ -19,6 +20,13 @@ const FOLLOW_UP_STATUS_OPTIONS = [
   { value: 'not_interested', label: 'No interesado' },
 ];
 const FOLLOW_UP_STATUS_PREFIX = '[[seguimiento:';
+const HISTORY_FILTERS = [
+  { value: 'today', label: 'Hoy' },
+  { value: 'yesterday', label: 'Ayer' },
+  { value: 'last7', label: 'Ultimos 7 dias' },
+  { value: 'all', label: 'Todos' },
+  { value: 'specific', label: 'Buscar fecha' },
+];
 
 function localDateValue() {
   const now = new Date();
@@ -83,6 +91,39 @@ function formatDateLabel(dateValue) {
   const [year, month, day] = dateValue.split('-').map(Number);
   if (!year || !month || !day) return dateValue;
   return new Intl.DateTimeFormat('es-PE', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date(year, month - 1, day));
+}
+
+function addDays(dateValue, days) {
+  const [year, month, day] = String(dateValue || '').split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const next = new Date(year, month - 1, day);
+  next.setDate(next.getDate() + days);
+  const local = new Date(next.getTime() - next.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function historyRangeForFilter(filter, today, specificDate) {
+  if (filter === 'today') return { from: today, to: today };
+  if (filter === 'yesterday') {
+    const yesterday = addDays(today, -1);
+    return { from: yesterday, to: yesterday };
+  }
+  if (filter === 'last7') return { from: addDays(today, -6), to: today };
+  if (filter === 'specific') return specificDate ? { from: specificDate, to: specificDate } : { from: today, to: today };
+  return {};
+}
+
+function buildHistoryGroups(records) {
+  const groups = new Map();
+  records.forEach((record) => {
+    const key = record.date || 'sin-fecha';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  });
+
+  return Array.from(groups.entries())
+    .sort(([dateA], [dateB]) => String(dateB).localeCompare(String(dateA)))
+    .map(([date, dayRecords]) => ({ date, records: dayRecords }));
 }
 
 function buildId() {
@@ -212,12 +253,17 @@ function RegistroTurnoWorkspace() {
   const [customerWhatsapp, setCustomerWhatsapp] = useState('');
   const [notes, setNotes] = useState('');
   const [records, setRecords] = useState([]);
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [historyStorage, setHistoryStorage] = useState('localStorage');
+  const [historyFilter, setHistoryFilter] = useState('last7');
+  const [historyDate, setHistoryDate] = useState(today);
   const [lastRecord, setLastRecord] = useState(null);
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState('success');
   const [recordsStorage, setRecordsStorage] = useState('localStorage');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [followUpRecord, setFollowUpRecord] = useState(null);
   const [followUpForm, setFollowUpForm] = useState({
     freePhotoRedeemed: false,
@@ -229,6 +275,22 @@ function RegistroTurnoWorkspace() {
   const [followUpStatus, setFollowUpStatus] = useState({ tone: 'success', text: '' });
 
   const hasFreePhotoBenefit = fullPassCount > 0;
+  const historyGroups = useMemo(() => buildHistoryGroups(historyRecords), [historyRecords]);
+
+  const loadHistory = useCallback(async () => {
+    setIsLoadingHistory(true);
+    const range = historyRangeForFilter(historyFilter, today, historyDate);
+    const result = await listTurnRecordsHistory(range);
+    if (result.ok) {
+      setHistoryRecords(result.data);
+      setHistoryStorage(result.storage);
+    } else {
+      setHistoryRecords([]);
+      setMessageTone('error');
+      setMessage('No pudimos cargar el historial. RevisÃ¡ la conexiÃ³n e intentÃ¡ nuevamente.');
+    }
+    setIsLoadingHistory(false);
+  }, [historyDate, historyFilter, today]);
 
   useEffect(() => {
     if (!photoCodeTouched) setPhotoCode(createPhotoCode(date, turnTime));
@@ -260,6 +322,10 @@ function RegistroTurnoWorkspace() {
     return () => { active = false; };
   }, [date]);
 
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
   const commercialSummary = useMemo(() => buildCommercialSummary(records), [records]);
 
   const refreshRecords = async () => {
@@ -275,6 +341,7 @@ function RegistroTurnoWorkspace() {
       setMessage('No pudimos cargar los registros. Revisá la conexión e intentá nuevamente.');
     }
     setIsLoadingRecords(false);
+    await loadHistory();
   };
 
   const handleTotalChange = (event) => {
@@ -342,6 +409,7 @@ function RegistroTurnoWorkspace() {
       } else {
         setRecords((current) => current.map((item) => (item.id === result.data.id ? result.data : item)));
       }
+      await loadHistory();
       setLastRecord((current) => (current?.id === result.data.id ? result.data : current));
       setFollowUpRecord(null);
     } else {
@@ -409,6 +477,7 @@ function RegistroTurnoWorkspace() {
       } else {
         setRecords((current) => [result.data, ...current.filter((item) => item.id !== result.data.id)]);
       }
+      await loadHistory();
       setFullPassCount(0);
       setNotes('');
       setFreePhotoRedeemed(false);
@@ -702,6 +771,90 @@ function RegistroTurnoWorkspace() {
           </div>
         ) : (
           <p className="turn-record-empty">Todavía no hay grupos guardados para esta fecha.</p>
+        )}
+      </section>
+
+      <section className="turn-register-card turn-history-section" aria-labelledby="turn-history-title">
+        <div className="turn-records-header">
+          <div className="turn-register-card-head">
+            <span>Historial por dÃ­as</span>
+            <h2 id="turn-history-title">Historial por dÃ­as</h2>
+            <p>RevisÃ¡ registros anteriores sin reemplazar el resumen del dÃ­a actual.</p>
+          </div>
+          <div className="turn-overview-source">
+            <span>Fuente</span>
+            <strong>{historyStorage === 'supabase' ? 'Nube' : 'Este dispositivo'}</strong>
+          </div>
+        </div>
+
+        <div className="turn-history-filters" aria-label="Filtros de historial">
+          {HISTORY_FILTERS.map((option) => (
+            <button
+              key={option.value}
+              className={historyFilter === option.value ? 'active' : ''}
+              type="button"
+              onClick={() => setHistoryFilter(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+          {historyFilter === 'specific' && (
+            <label>
+              <span>Fecha especÃ­fica</span>
+              <input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} />
+            </label>
+          )}
+        </div>
+
+        {isLoadingHistory ? (
+          <p className="turn-history-empty">Cargando historial...</p>
+        ) : historyGroups.length ? (
+          <div className="turn-history-days">
+            {historyGroups.map(({ date: groupDate, records: dayRecords }) => {
+              const daySummary = buildCommercialSummary(dayRecords);
+              return (
+                <article className="turn-history-day" key={groupDate}>
+                  <div className="turn-history-day-head">
+                    <div>
+                      <span>Resumen del dÃ­a</span>
+                      <h3>{formatDateLabel(groupDate)}</h3>
+                    </div>
+                    <strong>{daySummary.totalGroups} registros</strong>
+                  </div>
+
+                  <div className="turn-history-summary">
+                    <div><span>Personas</span><strong>{daySummary.totalPeople}</strong></div>
+                    <div><span>WhatsApp</span><strong>{daySummary.groupsWithWhatsapp}</strong></div>
+                    <div><span>Full Pass</span><strong>{daySummary.totalFullPass}</strong></div>
+                    <div><span>Fotos</span><strong>{daySummary.freePhotosRedeemed + daySummary.groupsPurchasedExtraPhotos}</strong></div>
+                  </div>
+
+                  <details className="turn-history-details" open={historyGroups.length === 1}>
+                    <summary>Ver registros</summary>
+                    <div className="turn-history-records">
+                      {dayRecords.map((record) => (
+                        <article className="turn-history-record" key={record.id}>
+                          <div>
+                            <span>{record.turnTime || 'Sin horario'}</span>
+                            <strong>{record.photoCode || 'Sin cÃ³digo'}</strong>
+                            <small>{getVisibleNotes(record) || 'Sin nota'}</small>
+                          </div>
+                          <dl>
+                            <div><dt>Personas</dt><dd>{record.totalPeople}</dd></div>
+                            <div><dt>WhatsApp</dt><dd>{record.customerWhatsapp ? maskCustomerWhatsapp(record.customerWhatsapp) : 'No registrado'}</dd></div>
+                            <div><dt>Full Pass</dt><dd>{record.fullPassCount}</dd></div>
+                            <div><dt>Fotos</dt><dd>{record.freePhotoRedeemed || record.purchasedExtraPhotos ? 'Si' : 'No'}</dd></div>
+                          </dl>
+                        </article>
+                      ))}
+                    </div>
+                  </details>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="turn-history-empty">No hay registros para esta fecha.</p>
         )}
       </section>
 
