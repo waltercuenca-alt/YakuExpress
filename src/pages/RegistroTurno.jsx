@@ -126,6 +126,41 @@ function buildHistoryGroups(records) {
     .map(([date, dayRecords]) => ({ date, records: dayRecords }));
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function recordMatchesHistorySearch(record, searchValue) {
+  const query = normalizeSearchText(searchValue);
+  if (!query) return true;
+
+  const whatsappDigits = recordText(record, 'customerWhatsapp', 'customer_whatsapp').replace(/\D/g, '');
+  const queryDigits = String(searchValue || '').replace(/\D/g, '');
+  const whatsappLastDigits = whatsappDigits.slice(-4);
+  const canMatchWhatsapp = queryDigits.length > 0
+    && queryDigits.length <= 4
+    && whatsappLastDigits.endsWith(queryDigits);
+  if (canMatchWhatsapp) return true;
+
+  const fullPassCount = recordNumber(record, 'fullPassCount', 'full_pass_count');
+  const hasPhotos = recordBoolean(record, 'freePhotoRedeemed', 'free_photo_redeemed')
+    || recordBoolean(record, 'purchasedExtraPhotos', 'purchased_extra_photos');
+  const searchableText = normalizeSearchText([
+    recordText(record, 'photoCode', 'photo_code'),
+    recordText(record, 'turnTime', 'turn_time'),
+    recordText(record, 'date', 'record_date'),
+    formatDateLabel(recordText(record, 'date', 'record_date')),
+    fullPassCount > 0 ? `full pass ${fullPassCount}` : 'sin full pass',
+    hasPhotos ? 'fotos foto gratis fotos extra' : 'sin fotos',
+  ].join(' '));
+
+  return searchableText.includes(query);
+}
+
 function buildId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `turn-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -257,6 +292,7 @@ function RegistroTurnoWorkspace() {
   const [historyStorage, setHistoryStorage] = useState('localStorage');
   const [historyFilter, setHistoryFilter] = useState('last7');
   const [historyDate, setHistoryDate] = useState(today);
+  const [historySearch, setHistorySearch] = useState('');
   const [lastRecord, setLastRecord] = useState(null);
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState('success');
@@ -275,7 +311,12 @@ function RegistroTurnoWorkspace() {
   const [followUpStatus, setFollowUpStatus] = useState({ tone: 'success', text: '' });
 
   const hasFreePhotoBenefit = fullPassCount > 0;
-  const historyGroups = useMemo(() => buildHistoryGroups(historyRecords), [historyRecords]);
+  const filteredHistoryRecords = useMemo(
+    () => historyRecords.filter((record) => recordMatchesHistorySearch(record, historySearch)),
+    [historyRecords, historySearch],
+  );
+  const historyGroups = useMemo(() => buildHistoryGroups(filteredHistoryRecords), [filteredHistoryRecords]);
+  const hasHistorySearch = historySearch.trim().length > 0;
 
   const loadHistory = useCallback(async () => {
     setIsLoadingHistory(true);
@@ -806,6 +847,17 @@ function RegistroTurnoWorkspace() {
           )}
         </div>
 
+        <label className="turn-history-search">
+          <span>Buscar en historial</span>
+          <input
+            type="search"
+            value={historySearch}
+            onChange={(event) => setHistorySearch(event.target.value)}
+            placeholder="Buscar por código, horario o últimos dígitos..."
+            autoComplete="off"
+          />
+        </label>
+
         {isLoadingHistory ? (
           <p className="turn-history-empty">Cargando historial...</p>
         ) : historyGroups.length ? (
@@ -873,7 +925,9 @@ function RegistroTurnoWorkspace() {
             })}
           </div>
         ) : (
-          <p className="turn-history-empty">No hay registros para esta fecha.</p>
+          <p className="turn-history-empty">
+            {hasHistorySearch ? 'No encontramos registros con esa búsqueda.' : 'No hay registros para esta fecha.'}
+          </p>
         )}
       </section>
 

@@ -7385,6 +7385,37 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   color: #003c7c;
 }
 
+.turn-history-search {
+  display: grid;
+  gap: 6px;
+  margin: -4px 0 16px;
+  color: #365a72;
+  font-size: .78rem;
+  font-weight: 900;
+}
+
+.turn-history-search span {
+  color: #00799f;
+  text-transform: uppercase;
+}
+
+.turn-history-search input {
+  width: 100%;
+  min-height: 46px;
+  border: 2px solid rgba(0, 167, 225, .22);
+  border-radius: 15px;
+  padding: 11px 13px;
+  background: linear-gradient(180deg, #ffffff, #f6fcff);
+  color: #003c7c;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .76), 0 10px 22px rgba(0, 78, 145, .06);
+}
+
+.turn-history-search input:focus {
+  border-color: #00a7e1;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0, 167, 225, .12);
+}
+
 .turn-history-days {
   display: grid;
   gap: 12px;
@@ -7569,6 +7600,10 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
 
   .turn-history-filters label {
     grid-column: 1 / -1;
+  }
+
+  .turn-history-search {
+    margin-top: 0;
   }
 
   .turn-history-day {
