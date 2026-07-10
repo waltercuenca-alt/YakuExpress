@@ -34,6 +34,7 @@ export default function Fotos({ navigate, path = '' }) {
     [selectedPhotos.length, photos.length],
   );
   const mobileCheckoutVisible = selectedPhotos.length > 0 && !summaryOpen && !activePhoto;
+  const isEmptyGalleryError = error.startsWith('No encontramos fotos');
   const mobileCheckoutLabel = selectedPhotos.length === 1
     ? '1 foto seleccionada'
     : `${selectedPhotos.length} fotos seleccionadas`;
@@ -256,10 +257,24 @@ export default function Fotos({ navigate, path = '' }) {
             {loading && <PhotoLoading />}
 
             {!loading && error && (
-              <div className="photos-empty">
-                <strong>{error}</strong>
-                <p>Verifica el numero o consulta al equipo de fotografia.</p>
-                <button type="button" onClick={() => navigate?.('/cliente')}>Volver</button>
+              <div className={`photos-empty ${isEmptyGalleryError ? 'photos-empty--not-found' : ''}`}>
+                <span className="photos-empty-icon" aria-hidden="true">?</span>
+                <small>{searchedCode ? `Codigo revisado: ${searchedCode}` : 'Galeria no disponible'}</small>
+                <strong>{isEmptyGalleryError ? 'No encontramos fotos para este codigo' : error}</strong>
+                <p>
+                  {isEmptyGalleryError
+                    ? 'Revisa que el codigo este escrito correctamente. Si acabas de salir del parque, puede que tus fotos todavia esten cargandose.'
+                    : 'Intenta nuevamente en unos minutos o consulta con el equipo de Fotografia.'}
+                </p>
+                {isEmptyGalleryError && (
+                  <p className="photos-empty-hint">
+                    Tu codigo suele estar en el mensaje que recibiste del equipo de Fotografia de Yakupark.
+                  </p>
+                )}
+                <div className="photos-empty-actions">
+                  <button type="button" onClick={() => navigate?.('/fotos')}>Intentar con otro codigo</button>
+                  <span>Consulta con el equipo de Fotografia</span>
+                </div>
               </div>
             )}
 
