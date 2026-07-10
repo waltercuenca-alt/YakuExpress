@@ -277,10 +277,9 @@ export default function RegistroTurno() {
 
 function RegistroTurnoWorkspace() {
   const today = useMemo(() => localDateValue(), []);
-  const [date, setDate] = useState(today);
+  const [date] = useState(today);
   const [turnTime, setTurnTime] = useState(TURN_OPTIONS[0]);
-  const [photoCode, setPhotoCode] = useState(() => createPhotoCode(today, TURN_OPTIONS[0]));
-  const [photoCodeTouched, setPhotoCodeTouched] = useState(false);
+  const photoCode = useMemo(() => createPhotoCode(date, turnTime), [date, turnTime]);
   const [totalPeople, setTotalPeople] = useState(0);
   const [fullPassCount, setFullPassCount] = useState(0);
   const [freePhotoRedeemed, setFreePhotoRedeemed] = useState(false);
@@ -332,10 +331,6 @@ function RegistroTurnoWorkspace() {
     }
     setIsLoadingHistory(false);
   }, [historyDate, historyFilter, today]);
-
-  useEffect(() => {
-    if (!photoCodeTouched) setPhotoCode(createPhotoCode(date, turnTime));
-  }, [date, turnTime, photoCodeTouched]);
 
   useEffect(() => {
     if (!hasFreePhotoBenefit) {
@@ -488,7 +483,7 @@ function RegistroTurnoWorkspace() {
       id: buildId(),
       date,
       turnTime,
-      photoCode: (photoCode.trim() || createPhotoCode(date, turnTime)).toUpperCase(),
+      photoCode: photoCode.toUpperCase(),
       totalPeople: safeTotalPeople,
       standardCount: 0,
       fullPassCount: safeFullPassCount,
@@ -525,8 +520,6 @@ function RegistroTurnoWorkspace() {
       setPhotoFollowUpStatus('pending');
       setCustomerWhatsapp('');
       setTotalPeople(0);
-      setPhotoCodeTouched(false);
-      setPhotoCode(createPhotoCode(date, turnTime));
     } else {
       setMessageTone('error');
       setMessage('No pudimos guardar el registro. Revisá la conexión e intentá nuevamente.');
@@ -615,31 +608,25 @@ function RegistroTurnoWorkspace() {
               <span>1</span>
               <div>
                 <strong>Visita y fotos</strong>
-                <small>Fecha, turno, código y tamaño del grupo.</small>
+                <small>Elegí el horario y el código se arma solo.</small>
+              </div>
+            </div>
+            <div className="turn-auto-summary" aria-label="Datos automáticos del registro">
+              <div>
+                <span>Fecha automática</span>
+                <strong>{formatDateLabel(date)}</strong>
+              </div>
+              <div>
+                <span>Código de fotos</span>
+                <strong>{photoCode}</strong>
               </div>
             </div>
             <div className="turn-register-fields">
-              <label>
-                <span>Fecha *</span>
-                <input type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-              </label>
               <label>
                 <span>Horario *</span>
                 <select value={turnTime} onChange={(event) => setTurnTime(event.target.value)}>
                   {TURN_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
-              </label>
-              <label>
-                <span>Código de fotos</span>
-                <input
-                  type="text"
-                  value={photoCode}
-                  onChange={(event) => {
-                    setPhotoCodeTouched(true);
-                    setPhotoCode(event.target.value.toUpperCase());
-                  }}
-                  placeholder="05JUNIO-1030"
-                />
               </label>
               <label>
                 <span>Total de personas *</span>
@@ -654,7 +641,7 @@ function RegistroTurnoWorkspace() {
               <span>2</span>
               <div>
                 <strong>Contacto y seguimiento</strong>
-                <small>WhatsApp, Full Pass y estado comercial de las fotos.</small>
+                <small>Full Pass, estado, WhatsApp y notas en un solo paso.</small>
               </div>
             </div>
             <div className="turn-register-fields turn-commercial-fields">
@@ -677,36 +664,18 @@ function RegistroTurnoWorkspace() {
                   ))}
                 </select>
               </label>
+              <label className="turn-whatsapp-field">
+                <span>WhatsApp del cliente</span>
+                <input
+                  type="tel"
+                  value={customerWhatsapp}
+                  onChange={(event) => setCustomerWhatsapp(event.target.value)}
+                  placeholder="Ej. 999 999 999"
+                  inputMode="tel"
+                />
+                <small>Se usa para enviar el mensaje con el código de fotos.</small>
+              </label>
             </div>
-          </div>
-
-          <div className="turn-form-section">
-            <div className="turn-form-section-head">
-              <span>3</span>
-              <div>
-                <strong>Datos opcionales</strong>
-                <small>Contacto del cliente y una observación breve.</small>
-              </div>
-            </div>
-            <div className={`turn-benefit-card ${hasFreePhotoBenefit ? 'active' : ''}`}>
-              <span>Full Pass</span>
-              <strong>{hasFreePhotoBenefit ? `${fullPassCount} registrado${fullPassCount === 1 ? '' : 's'}` : 'Sin Full Pass'}</strong>
-              <p>El beneficio de foto gratis se mantiene compatible con los registros actuales.</p>
-              {hasFreePhotoBenefit && <em>Foto gratis incluida</em>}
-            </div>
-
-            <label className="turn-whatsapp-field">
-              <span>WhatsApp del cliente</span>
-              <input
-                type="tel"
-                value={customerWhatsapp}
-                onChange={(event) => setCustomerWhatsapp(event.target.value)}
-                placeholder="Ej. 999 999 999"
-                inputMode="tel"
-              />
-              <small>Opcional pero recomendado. Se usa para enviar el código y orientar la compra de fotos.</small>
-            </label>
-
             <label className="turn-notes-field">
               <span>Notas opcionales</span>
               <textarea

@@ -5058,6 +5058,31 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   border-color: rgba(0, 178, 213, .6);
   box-shadow: 0 0 0 4px rgba(0, 178, 213, .14);
 }
+.turn-auto-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.turn-auto-summary div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(0, 143, 170, .16);
+  border-radius: 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(0, 178, 213, .1), rgba(255, 206, 0, .1));
+}
+.turn-auto-summary span {
+  color: #61778f;
+  font-size: .74rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.turn-auto-summary strong {
+  color: #001d55;
+  font-size: 1.02rem;
+  overflow-wrap: anywhere;
+}
 .turn-calculated-total {
   display: flex;
   flex-wrap: wrap;
@@ -5330,6 +5355,10 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   color: #334e6e;
   font-size: .88rem;
   font-weight: 850;
+}
+.turn-register-fields .turn-whatsapp-field {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 .turn-whatsapp-field input {
   width: 100%;
