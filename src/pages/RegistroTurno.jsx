@@ -42,6 +42,34 @@ function createPhotoCode(dateValue, turnTime) {
   return `${String(day).padStart(2, '0')}${MONTH_NAMES[month - 1] || ''}-${time}`;
 }
 
+function photoCodeSuffixFromNumber(value) {
+  let number = value;
+  let suffix = '';
+  while (number > 0) {
+    number -= 1;
+    suffix = String.fromCharCode(65 + (number % 26)) + suffix;
+    number = Math.floor(number / 26);
+  }
+  return suffix;
+}
+
+function createAvailablePhotoCode(dateValue, turnTime, records = []) {
+  const baseCode = createPhotoCode(dateValue, turnTime);
+  if (!baseCode) return '';
+  const usedSuffixes = new Set();
+  records.forEach((record) => {
+    const recordCode = recordText(record, 'photoCode', 'photo_code').toUpperCase();
+    const match = recordCode.match(new RegExp(`^${baseCode}([A-Z]*)$`));
+    if (match) usedSuffixes.add(match[1]);
+  });
+  if (!usedSuffixes.has('')) return baseCode;
+  let nextSuffixNumber = 1;
+  while (usedSuffixes.has(photoCodeSuffixFromNumber(nextSuffixNumber))) {
+    nextSuffixNumber += 1;
+  }
+  return `${baseCode}${photoCodeSuffixFromNumber(nextSuffixNumber)}`;
+}
+
 function numberValue(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
@@ -279,7 +307,6 @@ function RegistroTurnoWorkspace() {
   const today = useMemo(() => localDateValue(), []);
   const [date] = useState(today);
   const [turnTime, setTurnTime] = useState(TURN_OPTIONS[0]);
-  const photoCode = useMemo(() => createPhotoCode(date, turnTime), [date, turnTime]);
   const [totalPeople, setTotalPeople] = useState(0);
   const [fullPassCount, setFullPassCount] = useState(0);
   const [freePhotoRedeemed, setFreePhotoRedeemed] = useState(false);
@@ -309,6 +336,7 @@ function RegistroTurnoWorkspace() {
   const [isUpdatingFollowUp, setIsUpdatingFollowUp] = useState(false);
   const [followUpStatus, setFollowUpStatus] = useState({ tone: 'success', text: '' });
 
+  const photoCode = useMemo(() => createAvailablePhotoCode(date, turnTime, records), [date, records, turnTime]);
   const hasFreePhotoBenefit = fullPassCount > 0;
   const filteredHistoryRecords = useMemo(
     () => historyRecords.filter((record) => recordMatchesHistorySearch(record, historySearch)),
