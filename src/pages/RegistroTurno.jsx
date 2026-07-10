@@ -328,7 +328,7 @@ function RegistroTurnoWorkspace() {
     } else {
       setHistoryRecords([]);
       setMessageTone('error');
-      setMessage('No pudimos cargar el historial. RevisÃ¡ la conexiÃ³n e intentÃ¡ nuevamente.');
+      setMessage('No pudimos cargar el historial. Revisá la conexión e intentá nuevamente.');
     }
     setIsLoadingHistory(false);
   }, [historyDate, historyFilter, today]);
@@ -818,9 +818,9 @@ function RegistroTurnoWorkspace() {
       <section className="turn-register-card turn-history-section" aria-labelledby="turn-history-title">
         <div className="turn-records-header">
           <div className="turn-register-card-head">
-            <span>Historial por dÃ­as</span>
-            <h2 id="turn-history-title">Historial por dÃ­as</h2>
-            <p>RevisÃ¡ registros anteriores sin reemplazar el resumen del dÃ­a actual.</p>
+            <span>Historial por días</span>
+            <h2 id="turn-history-title">Historial por días</h2>
+            <p>Revisá registros anteriores sin reemplazar el resumen del día actual.</p>
           </div>
           <div className="turn-overview-source">
             <span>Fuente</span>
@@ -841,7 +841,7 @@ function RegistroTurnoWorkspace() {
           ))}
           {historyFilter === 'specific' && (
             <label>
-              <span>Fecha especÃ­fica</span>
+              <span>Fecha específica</span>
               <input type="date" value={historyDate} onChange={(event) => setHistoryDate(event.target.value)} />
             </label>
           )}
@@ -868,7 +868,7 @@ function RegistroTurnoWorkspace() {
                 <article className="turn-history-day" key={groupDate}>
                   <div className="turn-history-day-head">
                     <div>
-                      <span>Resumen del dÃ­a</span>
+                      <span>Resumen del día</span>
                       <h3>{formatDateLabel(groupDate)}</h3>
                     </div>
                     <strong>{daySummary.totalGroups} registros</strong>
@@ -888,7 +888,7 @@ function RegistroTurnoWorkspace() {
                         <article className="turn-history-record" key={record.id}>
                           <div>
                             <span>{record.turnTime || 'Sin horario'}</span>
-                            <strong>{record.photoCode || 'Sin cÃ³digo'}</strong>
+                            <strong>{record.photoCode || 'Sin código'}</strong>
                             <small>{getVisibleNotes(record) || 'Sin nota'}</small>
                           </div>
                           <dl>
