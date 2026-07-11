@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 
 const STORAGE_KEY = 'yaku_turn_records_v1';
+const OPERATION_STORAGE_KEY = 'yaku_turn_operation_records_v1';
 
 function numberValue(value) {
   const parsed = Number(value);
@@ -136,6 +137,88 @@ function logSupabaseTurnRecordError(action, error) {
   console.warn(`Turn record cloud ${action} unavailable. Using local fallback.`, { code, message });
 }
 
+function normalizeOperationRecord(record, storage = 'localStorage') {
+  return {
+    id: record?.id || buildLocalId(),
+    date: record?.date || record?.operation_date || '',
+    photographerName: String(record?.photographerName ?? record?.photographer_name ?? '').trim(),
+    cameraDelivered: booleanValue(record?.cameraDelivered ?? record?.camera_delivered),
+    deliveredAt: (String(record?.deliveredAt ?? record?.delivered_at ?? '09:00').trim() || '09:00').slice(0, 5),
+    createdAt: record?.createdAt || record?.created_at || new Date().toISOString(),
+    updatedAt: record?.updatedAt || record?.updated_at || null,
+    storage: record?.storage || storage,
+  };
+}
+
+function normalizeOperationRecordForDb(record) {
+  const normalized = normalizeOperationRecord(record, 'supabase');
+  return {
+    id: normalized.id,
+    operation_date: normalized.date,
+    photographer_name: normalized.photographerName,
+    camera_delivered: normalized.cameraDelivered,
+    delivered_at: normalized.deliveredAt,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function normalizeDbOperationRecord(row) {
+  return normalizeOperationRecord(row, 'supabase');
+}
+
+function readAllLocalOperationRecords() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const value = window.localStorage.getItem(OPERATION_STORAGE_KEY);
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed.map((item) => normalizeOperationRecord(item, item.storage || 'localStorage')) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAllLocalOperationRecords(records) {
+  window.localStorage.setItem(OPERATION_STORAGE_KEY, JSON.stringify(records.map((item) => normalizeOperationRecord(item, 'localStorage'))));
+}
+
+function logSupabaseOperationRecordError(action, error) {
+  const code = error?.code || 'unknown';
+  const message = error?.message || 'Unknown Supabase error';
+  console.warn(`Turn operation cloud ${action} unavailable. Using local fallback.`, { code, message });
+}
+
+export function saveTurnOperationRecordLocal(record) {
+  try {
+    const normalized = normalizeOperationRecord(record, 'localStorage');
+    const current = readAllLocalOperationRecords();
+    const next = [normalized, ...current.filter((item) => item.date !== normalized.date)];
+    writeAllLocalOperationRecords(next);
+    return { ok: true, storage: 'localStorage', data: normalized };
+  } catch (error) {
+    return { ok: false, storage: 'none', error };
+  }
+}
+
+export function getTurnOperationRecordLocalByDate(date) {
+  try {
+    const data = readAllLocalOperationRecords().find((item) => item.date === date) || null;
+    return { ok: true, storage: 'localStorage', data };
+  } catch (error) {
+    return { ok: false, storage: 'none', error };
+  }
+}
+
+export function listTurnOperationRecordsLocalHistory(limit = 14) {
+  try {
+    const data = readAllLocalOperationRecords()
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, limit);
+    return { ok: true, storage: 'localStorage', data };
+  } catch (error) {
+    return { ok: false, storage: 'none', error };
+  }
+}
+
 export function saveTurnRecordLocal(record) {
   try {
     const normalized = normalizeTurnRecord(record, 'localStorage');
@@ -254,6 +337,52 @@ export async function listTurnRecordsHistory({ from, to } = {}) {
   } catch (error) {
     logSupabaseTurnRecordError('history list', error);
     return listTurnRecordsLocalHistory({ from, to });
+  }
+}
+
+export async function saveTurnOperationRecord(record) {
+  try {
+    const payload = normalizeOperationRecordForDb(record);
+    const { data, error } = await supabase
+      .from('turn_operation_records')
+      .upsert(payload, { onConflict: 'operation_date' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { ok: true, storage: 'supabase', data: normalizeDbOperationRecord(data) };
+  } catch (error) {
+    logSupabaseOperationRecordError('save', error);
+    return saveTurnOperationRecordLocal(record);
+  }
+}
+
+export async function getTurnOperationRecordByDate(date) {
+  try {
+    const { data, error } = await supabase
+      .from('turn_operation_records')
+      .select('*')
+      .eq('operation_date', date)
+      .maybeSingle();
+    if (error) throw error;
+    return { ok: true, storage: 'supabase', data: data ? normalizeDbOperationRecord(data) : null };
+  } catch (error) {
+    logSupabaseOperationRecordError('get', error);
+    return getTurnOperationRecordLocalByDate(date);
+  }
+}
+
+export async function listTurnOperationRecordsHistory(limit = 14) {
+  try {
+    const { data, error } = await supabase
+      .from('turn_operation_records')
+      .select('*')
+      .order('operation_date', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return { ok: true, storage: 'supabase', data: (data || []).map(normalizeDbOperationRecord) };
+  } catch (error) {
+    logSupabaseOperationRecordError('history list', error);
+    return listTurnOperationRecordsLocalHistory(limit);
   }
 }
 

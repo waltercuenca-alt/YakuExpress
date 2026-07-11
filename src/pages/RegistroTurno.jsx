@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  getTurnOperationRecordByDate,
   isValidCustomerWhatsapp,
+  listTurnOperationRecordsHistory,
   listTurnRecordsHistory,
   listTurnRecordsByDate,
   maskCustomerWhatsapp,
   normalizeCustomerWhatsapp,
+  saveTurnOperationRecord,
   saveTurnRecord,
   updateTurnRecordFollowUp,
 } from '../services/turnRecordsService.js';
@@ -322,6 +325,17 @@ function RegistroTurnoWorkspace() {
   const [lastRecord, setLastRecord] = useState(null);
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState('success');
+  const [operationForm, setOperationForm] = useState({
+    photographerName: '',
+    cameraDelivered: false,
+    deliveredAt: '09:00',
+  });
+  const [operationRecord, setOperationRecord] = useState(null);
+  const [operationHistory, setOperationHistory] = useState([]);
+  const [operationMessage, setOperationMessage] = useState('');
+  const [operationMessageTone, setOperationMessageTone] = useState('success');
+  const [operationStorage, setOperationStorage] = useState('localStorage');
+  const [isSavingOperation, setIsSavingOperation] = useState(false);
   const [recordsStorage, setRecordsStorage] = useState('localStorage');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
@@ -344,6 +358,27 @@ function RegistroTurnoWorkspace() {
   );
   const historyGroups = useMemo(() => buildHistoryGroups(filteredHistoryRecords), [filteredHistoryRecords]);
   const hasHistorySearch = historySearch.trim().length > 0;
+
+  const loadOperation = useCallback(async () => {
+    const [dailyResult, historyResult] = await Promise.all([
+      getTurnOperationRecordByDate(date),
+      listTurnOperationRecordsHistory(10),
+    ]);
+    if (dailyResult.ok) {
+      setOperationStorage(dailyResult.storage);
+      setOperationRecord(dailyResult.data);
+      if (dailyResult.data) {
+        setOperationForm({
+          photographerName: dailyResult.data.photographerName,
+          cameraDelivered: dailyResult.data.cameraDelivered,
+          deliveredAt: dailyResult.data.deliveredAt || '09:00',
+        });
+      }
+    }
+    if (historyResult.ok) {
+      setOperationHistory(historyResult.data);
+    }
+  }, [date]);
 
   const loadHistory = useCallback(async () => {
     setIsLoadingHistory(true);
@@ -390,6 +425,10 @@ function RegistroTurnoWorkspace() {
     void loadHistory();
   }, [loadHistory]);
 
+  useEffect(() => {
+    void loadOperation();
+  }, [loadOperation]);
+
   const commercialSummary = useMemo(() => buildCommercialSummary(records), [records]);
 
   const refreshRecords = async () => {
@@ -410,6 +449,44 @@ function RegistroTurnoWorkspace() {
 
   const handleTotalChange = (event) => {
     setTotalPeople(numberValue(event.target.value));
+  };
+
+  const updateOperationField = (key, value) => {
+    setOperationMessage('');
+    setOperationForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveOperation = async (event) => {
+    event.preventDefault();
+    const photographerName = operationForm.photographerName.trim();
+    if (!photographerName) {
+      setOperationMessageTone('error');
+      setOperationMessage('Ingresá el nombre completo del fotógrafo del día.');
+      return;
+    }
+    setIsSavingOperation(true);
+    const result = await saveTurnOperationRecord({
+      id: operationRecord?.id,
+      date,
+      photographerName,
+      cameraDelivered: operationForm.cameraDelivered,
+      deliveredAt: operationForm.deliveredAt || '09:00',
+      createdAt: operationRecord?.createdAt || new Date().toISOString(),
+    });
+    if (result.ok) {
+      setOperationRecord(result.data);
+      setOperationStorage(result.storage);
+      setOperationMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
+      setOperationMessage(result.storage === 'supabase'
+        ? 'Operación del día guardada en la nube.'
+        : 'Operación del día guardada en este dispositivo.');
+      const historyResult = await listTurnOperationRecordsHistory(10);
+      if (historyResult.ok) setOperationHistory(historyResult.data);
+    } else {
+      setOperationMessageTone('error');
+      setOperationMessage('No pudimos guardar la operación del día.');
+    }
+    setIsSavingOperation(false);
   };
 
   const openFollowUp = (record) => {
@@ -723,14 +800,61 @@ function RegistroTurnoWorkspace() {
         </form>
 
         <aside className="turn-register-stack">
-          <section className="turn-register-card turn-operations-guide">
-            <span>Flujo operativo</span>
-            <h2>Seguimiento de fotos</h2>
-            <ol>
-              <li>Registrá el grupo y su código de fotos.</li>
-              <li>Enviá el acceso por WhatsApp.</li>
-              <li>Actualizá si se interesó o compró.</li>
-            </ol>
+          <section className="turn-register-card turn-operations-guide turn-daily-operation">
+            <span>Operación</span>
+            <h2>GoPro y fotógrafo</h2>
+            <p className="turn-operation-note">La GoPro o cámara se debe entregar a caja a las 09:00 de la mañana.</p>
+            <form className="turn-operation-form" onSubmit={saveOperation}>
+              <div className="turn-operation-date">
+                <span>Día registrado</span>
+                <strong>{formatDateLabel(date)}</strong>
+              </div>
+              <label>
+                <span>Fotógrafo del día</span>
+                <input
+                  type="text"
+                  value={operationForm.photographerName}
+                  onChange={(event) => updateOperationField('photographerName', event.target.value)}
+                  placeholder="Nombre completo"
+                />
+              </label>
+              <div className="turn-operation-grid">
+                <label>
+                  <span>GoPro/cámara entregada</span>
+                  <select
+                    value={operationForm.cameraDelivered ? 'yes' : 'no'}
+                    onChange={(event) => updateOperationField('cameraDelivered', event.target.value === 'yes')}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Sí</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Horario de entrega</span>
+                  <input
+                    type="time"
+                    value={operationForm.deliveredAt}
+                    onChange={(event) => updateOperationField('deliveredAt', event.target.value)}
+                  />
+                </label>
+              </div>
+              <button type="submit" disabled={isSavingOperation}>
+                {isSavingOperation ? 'Guardando...' : 'Guardar operación'}
+              </button>
+              <small>Fuente: {operationStorage === 'supabase' ? 'Nube' : 'Este dispositivo'}</small>
+              {operationMessage && <p className={`turn-operation-message ${operationMessageTone}`}>{operationMessage}</p>}
+            </form>
+            {operationHistory.length > 0 && (
+              <div className="turn-operation-history">
+                <span>Registros recientes</span>
+                {operationHistory.map((item) => (
+                  <article key={item.id || item.date}>
+                    <strong>{formatDateLabel(item.date)}</strong>
+                    <small>{item.photographerName || 'Sin fotógrafo'} · {item.cameraDelivered ? `Entregada ${item.deliveredAt}` : 'No entregada'}</small>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
 
           {lastRecord && (

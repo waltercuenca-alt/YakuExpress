@@ -7308,6 +7308,111 @@ input[type="checkbox"] { width: 24px; height: 24px; accent-color: #00a9d8; }
   font-size: .78rem;
   font-weight: 1000;
 }
+.turn-daily-operation {
+  display: grid;
+  gap: 12px;
+}
+.turn-operation-note {
+  margin: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 206, 0, .18);
+  color: #385875;
+  font-weight: 850;
+  line-height: 1.35;
+}
+.turn-operation-form {
+  display: grid;
+  gap: 12px;
+}
+.turn-operation-date,
+.turn-operation-form label,
+.turn-operation-history article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(0, 167, 225, .18);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, .86);
+}
+.turn-operation-date span,
+.turn-operation-form label span,
+.turn-operation-history > span {
+  color: #00799f;
+  font-size: .74rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.turn-operation-date strong,
+.turn-operation-history strong {
+  color: #003c7c;
+}
+.turn-operation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.turn-operation-form input,
+.turn-operation-form select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 167, 225, .24);
+  border-radius: 14px;
+  padding: 11px 12px;
+  background: #ffffff;
+  color: #082449;
+  font: inherit;
+}
+.turn-operation-form input:focus,
+.turn-operation-form select:focus {
+  border-color: #00a7e1;
+  box-shadow: 0 0 0 4px rgba(0, 167, 225, .14);
+  outline: none;
+}
+.turn-operation-form button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #003c7c, #00a7e1);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 1000;
+}
+.turn-operation-form button:disabled {
+  cursor: wait;
+  opacity: .72;
+}
+.turn-operation-form > small,
+.turn-operation-history small {
+  color: #61778f;
+  font-size: .8rem;
+  line-height: 1.35;
+}
+.turn-operation-message {
+  margin: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(0, 155, 110, .1);
+  color: #006a4e;
+  font-weight: 900;
+}
+.turn-operation-message.warning {
+  background: rgba(255, 206, 0, .18);
+  color: #8a5b00;
+}
+.turn-operation-message.error {
+  background: rgba(225, 0, 90, .1);
+  color: #a10040;
+}
+.turn-operation-history {
+  display: grid;
+  gap: 8px;
+}
+@media (max-width: 520px) {
+  .turn-operation-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .turn-record-item {
   border-color: rgba(0, 143, 170, .14);
