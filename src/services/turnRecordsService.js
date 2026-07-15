@@ -34,6 +34,46 @@ export function maskCustomerWhatsapp(value) {
   return `******${digits.slice(-3)}`;
 }
 
+function maskCustomerWhatsappForNotification(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return `****${digits.slice(-4)}`;
+}
+
+export async function notifyTurnRegistration(record) {
+  if (typeof fetch !== 'function') return { ok: false, disabled: true };
+
+  const payload = {
+    date: String(record?.date || record?.record_date || '').trim(),
+    turnTime: String(record?.turnTime || record?.turn_time || '').trim(),
+    photoCode: String(record?.photoCode || record?.photo_code || '').trim().toUpperCase(),
+    totalPeople: numberValue(record?.totalPeople ?? record?.total_people),
+    hasPhotos: booleanValue(record?.freePhotoRedeemed ?? record?.free_photo_redeemed)
+      || booleanValue(record?.purchasedExtraPhotos ?? record?.purchased_extra_photos),
+    hasFullPass: numberValue(record?.fullPassCount ?? record?.full_pass_count) > 0,
+    whatsapp: maskCustomerWhatsappForNotification(record?.customerWhatsapp ?? record?.customer_whatsapp),
+  };
+
+  try {
+    const response = await fetch('/api/notify-turn-registration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) {
+      console.warn('Turn registration notification unavailable.', {
+        status: response.status,
+        disabled: Boolean(data?.disabled),
+      });
+    }
+    return { ok: response.ok && data?.ok !== false, data };
+  } catch {
+    console.warn('Turn registration notification unavailable.');
+    return { ok: false };
+  }
+}
+
 function sanitizeLocalRecord(record) {
   const {
     customerWhatsapp,

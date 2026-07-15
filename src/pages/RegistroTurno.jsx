@@ -6,6 +6,7 @@ import {
   listTurnRecordsHistory,
   listTurnRecordsByDate,
   maskCustomerWhatsapp,
+  notifyTurnRegistration,
   normalizeCustomerWhatsapp,
   saveTurnOperationRecord,
   saveTurnRecord,
@@ -606,6 +607,10 @@ function RegistroTurnoWorkspace() {
 
     const result = await saveTurnRecord(record);
     if (result.ok) {
+      void notifyTurnRegistration({
+        ...result.data,
+        customerWhatsapp: safeCustomerWhatsapp,
+      });
       setLastRecord(result.data);
       setMessageTone(result.storage === 'supabase' ? 'success' : 'warning');
       setMessage(result.storage === 'supabase'
